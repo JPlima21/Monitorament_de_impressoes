@@ -105,7 +105,7 @@ snmp_get("192.168.0.39", "oabce", "1.3.6.1.2.1.1.5.0") # OID para nome do dispos
 print('=' * 50)
 
 print("Consultando uptime do sistema:")
-get_uptime_days('192.168.0.39', 'oabce', '1.3.6.1.4.1.2001.1.1.1.1.1.0') # OID para uptime do sistema (sysUpTimeInstance)
+get_uptime_days('192.168.0.39', 'oabce', '1.3.6.1.2.1.1.3.0') # OID para uptime do sistema (sysUpTimeInstance)
 print('=' * 50)
 
 print("Consultando descrição do sistema:")
