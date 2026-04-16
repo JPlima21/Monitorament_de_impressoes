@@ -156,6 +156,7 @@ def monitorar_impressora(ip, community):
 
     return {
         "online": True,
+        "ip": ip,
         "nome": str(nome),
         "num_serie": str(num_serial),
         "descricao": str(desc),

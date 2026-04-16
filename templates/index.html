@@ -36,7 +36,7 @@ function criarColunaImpressora(nomeImpressora) {
             <!-- CARD NOME -->
             <div class="card">
                 <div class="card-header">
-                    <h2 id="nome_${nomeImpressora}">Carregando...</h2>
+                    <h2>🖨️ <span id="nome_${nomeImpressora}"></span></h2>
                     <div class="status offline" id="status_${nomeImpressora}">OFFLINE</div>
                 </div>
             </div>
@@ -45,6 +45,7 @@ function criarColunaImpressora(nomeImpressora) {
             <div class="card">
                 <h3>Informações</h3>
                 <div class="info">
+                    <p><strong>IP:</strong> <span id="ip_${nomeImpressora}"></span></p>
                     <p><strong>MAC:</strong> <span id="mac_${nomeImpressora}"></span></p>
                     <p><strong>Nº Série:</strong> <span id="serial_${nomeImpressora}"></span></p>
                     <p><strong>Descrição:</strong> <span id="descricao_${nomeImpressora}"></span></p>
@@ -103,6 +104,7 @@ async function atualizar() {
             // Atualizar INFORMAÇÕES
             const elements = {
                 nome: document.getElementById(`nome_${nomeImpressora}`),
+                ip: document.getElementById(`ip_${nomeImpressora}`),
                 mac: document.getElementById(`mac_${nomeImpressora}`),
                 serial: document.getElementById(`serial_${nomeImpressora}`),
                 descricao: document.getElementById(`descricao_${nomeImpressora}`),
@@ -113,6 +115,7 @@ async function atualizar() {
             };
 
             if (elements.nome) elements.nome.innerText = dataImpressora.nome || 'N/A';
+            if (elements.ip) elements.ip.innerText = dataImpressora.ip || 'N/A';
             if (elements.mac) elements.mac.innerText = dataImpressora.mac || 'N/A';
             if (elements.serial) elements.serial.innerText = dataImpressora.num_serie || 'N/A';
             if (elements.descricao) elements.descricao.innerText = dataImpressora.descricao || 'N/A';
@@ -128,7 +131,7 @@ async function atualizar() {
 }
 
 // Atualizar a cada 3 segundos
-setInterval(atualizar, 3000);
+setInterval(atualizar, 6000);
 
 // Atualizar imediatamente
 atualizar();
