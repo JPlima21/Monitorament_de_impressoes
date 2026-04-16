@@ -1,0 +1,112 @@
+body {
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+}
+
+/* DASHBOARD */
+.dashboard {
+    padding: 20px;
+}
+
+/* HEADER */
+header {
+    margin-bottom: 20px;
+}
+
+header h1 {
+    margin: 0;
+}
+
+/* STATUS */
+.status {
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-weight: bold;
+}
+
+.online {
+    background: #22c55e;
+    color: #022c22;
+}
+
+.offline {
+    background: #ef4444;
+}
+
+/* CONTEÚDO - Grid com 4 colunas por linha */
+.content {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+/* CARD */
+.card {
+    background: #1e293b;
+    padding: 12px; /* antes era 20px */
+    border-radius: 10px; /* antes 15px */
+    box-shadow: 0 0 6px rgba(0,0,0,0.3);
+    font-size: 14px; /* menor texto */
+}
+
+/* CARD IMPRESSORA */
+.printer {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.printer-image {
+    font-size: 40px; /* antes 60px */
+    margin-bottom: 5px;
+}
+
+.printer-image img {
+    max-width: 100%;
+    height: auto;
+    max-height: 200px;
+    object-fit: contain;
+}
+
+/* PAINEL DE INFORMAÇÕES */
+.info-panel {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+/* COLUNA DE IMPRESSORA */
+.printer-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* CARD HEADER - Status e Nome */
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.card-header h2 {
+    margin: 0;
+    flex: 1;
+}
+
+.card-header .status {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+/* INFO */
+.info p {
+    margin: 4px 0; /* antes 10px */
+    font-size: 13px;
+}

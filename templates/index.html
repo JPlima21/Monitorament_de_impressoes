@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Monitor de Impressora</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="dashboard">
+
+    <!-- HEADER -->
+    <header>
+        <h1>Monitor de Impressora</h1>
+    </header>
+
+    <!-- CONTEÚDO - Gerado dinamicamente pelo JavaScript -->
+    <div class="content" id="content-container">
+        <p style="text-align: center; padding: 20px;">Carregando impressoras...</p>
+    </div>
+
+</div>
+
+<script>
+// Função para criar a estrutura HTML de uma coluna de impressora
+function criarColunaImpressora(nomeImpressora) {
+    return `
+        <div class="printer-column">
+            <!-- CARD IMAGEM -->
+            <div class="card printer">
+                <div class="printer-image">
+                    <img src="/static/OKI_CALLCENTER.jpeg" alt="Impressora OKI">
+                </div>
+            </div>
+
+            <!-- CARD NOME -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 id="nome_${nomeImpressora}">Carregando...</h2>
+                    <div class="status offline" id="status_${nomeImpressora}">OFFLINE</div>
+                </div>
+            </div>
+
+            <!-- CARD INFO -->
+            <div class="card">
+                <h3>Informações</h3>
+                <div class="info">
+                    <p><strong>MAC:</strong> <span id="mac_${nomeImpressora}"></span></p>
+                    <p><strong>Nº Série:</strong> <span id="serial_${nomeImpressora}"></span></p>
+                    <p><strong>Descrição:</strong> <span id="descricao_${nomeImpressora}"></span></p>
+                    <p><strong>Uptime:</strong> <span id="uptime_${nomeImpressora}"></span></p>
+                </div>
+            </div>
+
+            <!-- CARD RECURSOS -->
+            <div class="card">
+                <h3>Recursos</h3>
+                <div class="info">
+                    <p><strong>Impressões:</strong> <span id="impressoes_${nomeImpressora}"></span></p>
+                    <p><strong>Toner:</strong> <span id="toner_${nomeImpressora}"></span></p>
+                    <p><strong>Scanner:</strong> <span id="scanner_${nomeImpressora}"></span></p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Função para atualizar os dados das impressoras
+async function atualizar() {
+    try {
+        const res = await fetch('/api');
+        const data = await res.json();
+        console.log('Dados recebidos:', data);
+        
+        const impressoras = data.impressoras || {};
+        const container = document.getElementById('content-container');
+
+        // Se for a primeira vez (container ainda mostra "Carregando..."), criar as colunas
+        if (!container.dataset.initialized) {
+            let html = '';
+            for (const nomeImpressora of Object.keys(impressoras)) {
+                html += criarColunaImpressora(nomeImpressora);
+            }
+            container.innerHTML = html;
+            container.dataset.initialized = 'true';
+        }
+
+        // Atualizar dados de cada impressora
+        for (const [nomeImpressora, dataImpressora] of Object.entries(impressoras)) {
+            const statusEl = document.getElementById(`status_${nomeImpressora}`);
+            
+            if (!statusEl) continue;
+
+            // Atualizar STATUS
+            if (!dataImpressora.online) {
+                statusEl.innerText = 'OFFLINE';
+                statusEl.className = 'status offline';
+            } else {
+                statusEl.innerText = 'ONLINE';
+                statusEl.className = 'status online';
+            }
+
+            // Atualizar INFORMAÇÕES
+            const elements = {
+                nome: document.getElementById(`nome_${nomeImpressora}`),
+                mac: document.getElementById(`mac_${nomeImpressora}`),
+                serial: document.getElementById(`serial_${nomeImpressora}`),
+                descricao: document.getElementById(`descricao_${nomeImpressora}`),
+                uptime: document.getElementById(`uptime_${nomeImpressora}`),
+                impressoes: document.getElementById(`impressoes_${nomeImpressora}`),
+                toner: document.getElementById(`toner_${nomeImpressora}`),
+                scanner: document.getElementById(`scanner_${nomeImpressora}`)
+            };
+
+            if (elements.nome) elements.nome.innerText = dataImpressora.nome || 'N/A';
+            if (elements.mac) elements.mac.innerText = dataImpressora.mac || 'N/A';
+            if (elements.serial) elements.serial.innerText = dataImpressora.num_serie || 'N/A';
+            if (elements.descricao) elements.descricao.innerText = dataImpressora.descricao || 'N/A';
+            if (elements.uptime) elements.uptime.innerText = dataImpressora.uptime || 'N/A';
+            if (elements.impressoes) elements.impressoes.innerText = dataImpressora.impressoes ?? 'N/A';
+            if (elements.toner) elements.toner.innerText = dataImpressora.toner || 'N/A';
+            if (elements.scanner) elements.scanner.innerText = dataImpressora.scanner || 'N/A';
+        }
+
+    } catch (e) {
+        console.error('Erro ao buscar dados:', e);
+    }
+}
+
+// Atualizar a cada 3 segundos
+setInterval(atualizar, 3000);
+
+// Atualizar imediatamente
+atualizar();
+</script>
+
+</body>
+</html>
