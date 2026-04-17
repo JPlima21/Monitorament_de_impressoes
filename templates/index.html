@@ -136,8 +136,8 @@ async function atualizar() {
     }
 }
 
-// Atualizar a cada 3 segundos
-setInterval(atualizar, 6000);
+// Atualizar com frequência menor que a coleta do backend para refletir mudanças rapidamente
+setInterval(atualizar, 4000);
 
 // Atualizar imediatamente
 atualizar();

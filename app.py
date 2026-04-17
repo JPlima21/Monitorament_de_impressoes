@@ -5,6 +5,7 @@ import time
 import os
 import subprocess
 from datetime import datetime
+import json
 
 # ⚙️ CONFIGURAÇÃO DE IMPRESSORAS
 # Para adicionar uma nova impressora, basta adicionar um dicionário nesta lista!
@@ -41,6 +42,7 @@ resultado_global = {
     'impressoras': {}
 }
 
+
 # Dicionário para rastrear impressões do dia
 rastreamento_dia = {}
 
@@ -51,11 +53,50 @@ for config in IMPRESSORAS_CONFIG:
         'data_lista': None,  # Data do último registro
         'hora_primeiro_registro': None,  # Hora do primeiro registro
         'impressoes_inicio': None,  # Valor inicial de impressões
+        'impressoes_acumuladas': 0,  # Total acumulado antes de resets do contador
         'impressoes_dia': 0,  # Contador de impressões do dia
         'registrado_hoje': False  # Flag para saber se já foi registrado hoje
     }
 
 app = Flask(__name__)
+
+# Arquivo para armazenar histórico de impressões
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+HISTORICO_FILE = os.path.join(BASE_DIR, 'historico_impressoes.json')
+
+
+# Carregar histórico existente
+def carregar_historico():
+    """
+    Carrega o histórico de impressões do arquivo JSON
+    """
+    if os.path.exists(HISTORICO_FILE):
+        try:
+            with open(HISTORICO_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+# Salvar histórico
+def salvar_historico(historico):
+    """
+    Salva o histórico de impressões em arquivo JSON
+    """
+    try:
+        with open(HISTORICO_FILE, 'w', encoding='utf-8') as f:
+            json.dump(historico, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Erro ao salvar histórico: {e}")
+
+historico_impressoes = carregar_historico()
+
+if not os.path.exists(HISTORICO_FILE):
+    salvar_historico(historico_impressoes)
+
+# Dicionário para armazenar histórico de impressões
+historico_impressoes = carregar_historico()
 
 # ============================================================================
 # FUNÇÕES DE SNMP E COLETA DE DADOS
@@ -115,49 +156,92 @@ def formatar_mac(mac_raw):
     except:
         return str(mac_raw)
 
+def obter_total_rastreamento(rastreamento):
+    """
+    Retorna o total consolidado do dia, incluindo resets de contador.
+    """
+    acumuladas = int(rastreamento.get('impressoes_acumuladas', 0) or 0)
+    atual = int(rastreamento.get('impressoes_dia', 0) or 0)
+    return acumuladas + atual
+
+def salvar_impressoes_dia(nome_impressora, rastreamento, motivo='fechamento_dia'):
+    global historico_impressoes
+
+    if not rastreamento['data_lista']:
+        return
+
+    if rastreamento['impressoes_dia'] is None:
+        return
+
+    data_str = str(rastreamento['data_lista'])
+
+    timestamp = datetime.now().strftime('%H%M%S')
+    chave = f"{nome_impressora}_{data_str}_{motivo}_{timestamp}"
+    total_consolidado = obter_total_rastreamento(rastreamento)
+
+    historico_impressoes[chave] = {
+        'impressora': nome_impressora,
+        'data': data_str,
+        'hora_inicio': str(rastreamento['hora_primeiro_registro']) if rastreamento['hora_primeiro_registro'] else 'N/A',
+        'impressoes_total': total_consolidado,
+        'motivo': motivo,
+        'timestamp_salvo': str(datetime.now())
+    }
+
+    # salva a cada ciclo (seguro)
+    salvar_historico(historico_impressoes)
+
+    print(f"💾 Histórico salvo: {nome_impressora} | {data_str} | {total_consolidado} | motivo={motivo}")
+
 def calcular_impressoes_dia(nome_impressora, impressoes_atuais):
-    """
-    Calcula as impressões do dia com base nas regras:
-    - Primeiro registro às 8:00 da manhã
-    - Se offline às 8:00, registra quando fica online
-    - Atualiza continuamente durante o dia
-    - Reseta à meia-noite
-    """
     global rastreamento_dia
-    
+
     if impressoes_atuais is None:
         return 0
-    
+
     rastreamento = rastreamento_dia[nome_impressora]
     agora = datetime.now()
     data_hoje = agora.date()
-    
-    # Verificar se mudou de dia
-    if rastreamento['data_lista'] != data_hoje:
-        # É um novo dia, resetar o rastreamento
+
+    # 🔄 PRIMEIRA EXECUÇÃO DO SISTEMA
+    if rastreamento['data_lista'] is None:
         rastreamento['data_lista'] = data_hoje
-        rastreamento['hora_primeiro_registro'] = None
-        rastreamento['impressoes_inicio'] = None
+        rastreamento['hora_primeiro_registro'] = agora.time()
+        rastreamento['impressoes_inicio'] = impressoes_atuais
+        rastreamento['registrado_hoje'] = True
+        return 0
+
+    # 🔄 MUDANÇA DE DIA
+    if rastreamento['data_lista'] != data_hoje:
+        salvar_impressoes_dia(nome_impressora, rastreamento)
+
+        rastreamento['data_lista'] = data_hoje
+        rastreamento['hora_primeiro_registro'] = agora.time()
+        rastreamento['impressoes_inicio'] = impressoes_atuais
+        rastreamento['impressoes_acumuladas'] = 0
         rastreamento['impressoes_dia'] = 0
-        rastreamento['registrado_hoje'] = False
-    
-    # Verificar se precisa fazer o primeiro registro do dia
-    if not rastreamento['registrado_hoje']:
-        # Verificar se já passou das 8:00 da manhã
-        if agora.hour >= 5:
-            # É hora de registrar
-            rastreamento['hora_primeiro_registro'] = agora.time()
+        rastreamento['registrado_hoje'] = True
+
+        return 0
+
+    # 📊 CÁLCULO NORMAL
+    if rastreamento['impressoes_inicio'] is not None:
+        total = impressoes_atuais - rastreamento['impressoes_inicio']
+
+        if total < 0:
+            total_anterior = int(rastreamento.get('impressoes_dia', 0) or 0)
+
+            if total_anterior > 0:
+                rastreamento['impressoes_acumuladas'] += total_anterior
+                salvar_impressoes_dia(nome_impressora, rastreamento, motivo='reset_contador')
+
             rastreamento['impressoes_inicio'] = impressoes_atuais
             rastreamento['impressoes_dia'] = 0
-            rastreamento['registrado_hoje'] = True
-    else:
-        # Já foi registrado, calcular a diferença
-        rastreamento['impressoes_dia'] = impressoes_atuais - rastreamento['impressoes_inicio']
-        # Se for negativo, significa que o contador foi resetado
-        if rastreamento['impressoes_dia'] < 0:
-            rastreamento['impressoes_dia'] = impressoes_atuais
-    
-    return rastreamento['impressoes_dia']
+            total = impressoes_atuais  # novo ciclo após reset do contador da impressora
+
+        rastreamento['impressoes_dia'] = total
+
+    return obter_total_rastreamento(rastreamento)
 
 def monitorar_impressora(ip, community, nome_impressora):
     """
@@ -243,44 +327,17 @@ def monitorar_impressora(ip, community, nome_impressora):
 def monitor_loop(ip, community, nome_impressora):
     global resultado_global
     while True:
-        dados = monitorar_impressora(ip, community, nome_impressora)
-        resultado_global['impressoras'][nome_impressora] = dados
-        
-        # Limpar terminal (Windows: cls, Linux/Mac: clear)
+        # Limpar terminal no início da iteração
         try:
             if os.name == 'nt':
-                subprocess.run('cls', shell=True)
+                os.system('cls')
             else:
-                subprocess.run('clear', shell=True)
+                os.system('clear')
         except:
             pass
         
-        # Exibir resumo limpo
-        print("\n" + "="*80)
-        print("🖨️  MONITOR DE IMPRESSORAS - OAB CE")
-        print("="*80 + "\n")
-        
-        # Exibir status de todas as impressoras
-        for nome, dados_impressora in resultado_global['impressoras'].items():
-            status_icon = "✅ ONLINE" if dados_impressora.get('online') else "❌ OFFLINE"
-            nome_imp = dados_impressora.get('nome', 'Desconhecida')
-            toner = dados_impressora.get('toner', 'N/A')
-            impressoes = dados_impressora.get('impressoes', 'N/A')
-            impressoes_dia = dados_impressora.get('impressoes_dia', 0)
-            mac = dados_impressora.get('mac', 'N/A')
-            
-            print(f"{status_icon} | {nome_imp}")
-            print(f"   📊 Impressões Total: {impressoes:,}  |  📈 Hoje: {impressoes_dia:,}  |  🎨 Toner: {toner}  |  🔗 MAC: {mac}")
-            if dados_impressora.get('online'):
-                uptime = dados_impressora.get('uptime', 'N/A')
-                print(f"   ⏱️  Uptime: {uptime}")
-            else:
-                print(f"   ⚠️  Erro: {dados_impressora.get('erro', 'Desconhecido')}")
-            print()
-        
-        print("="*80)
-        print(f"⏰ Última atualização: {time.strftime('%H:%M:%S')}")
-        print("="*80 + "\n")
+        dados = monitorar_impressora(ip, community, nome_impressora)
+        resultado_global['impressoras'][nome_impressora] = dados
         
         time.sleep(5)
 
@@ -299,6 +356,13 @@ for config in IMPRESSORAS_CONFIG:
 @app.route("/api")
 def api():
     return jsonify(resultado_global)
+
+@app.route("/api/historico")
+def api_historico():
+    """
+    Retorna o histórico de impressões salvo
+    """
+    return jsonify(historico_impressoes)
 
 
 # 🖥️ Interface Web
