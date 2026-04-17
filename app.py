@@ -3,6 +3,8 @@ from pysnmp.hlapi import *
 import threading
 import time
 import os
+import subprocess
+from datetime import datetime
 
 # ⚙️ CONFIGURAÇÃO DE IMPRESSORAS
 # Para adicionar uma nova impressora, basta adicionar um dicionário nesta lista!
@@ -27,6 +29,11 @@ IMPRESSORAS_CONFIG = [
         'ip': '192.168.0.34',
         'community': 'oabce'
     },
+    {
+        'id': 'impressora5',
+        'ip': '192.168.0.35',
+        'community': 'oabce'
+    },
 ]
 
 # Dicionário global para armazenar dados de TODAS as impressoras
@@ -34,9 +41,19 @@ resultado_global = {
     'impressoras': {}
 }
 
+# Dicionário para rastrear impressões do dia
+rastreamento_dia = {}
+
 # Inicializar com todas as impressoras da configuração
 for config in IMPRESSORAS_CONFIG:
     resultado_global['impressoras'][config['id']] = {'online': False}
+    rastreamento_dia[config['id']] = {
+        'data_lista': None,  # Data do último registro
+        'hora_primeiro_registro': None,  # Hora do primeiro registro
+        'impressoes_inicio': None,  # Valor inicial de impressões
+        'impressoes_dia': 0,  # Contador de impressões do dia
+        'registrado_hoje': False  # Flag para saber se já foi registrado hoje
+    }
 
 app = Flask(__name__)
 
@@ -98,23 +115,71 @@ def formatar_mac(mac_raw):
     except:
         return str(mac_raw)
 
-def monitorar_impressora(ip, community):
+def calcular_impressoes_dia(nome_impressora, impressoes_atuais):
+    """
+    Calcula as impressões do dia com base nas regras:
+    - Primeiro registro às 8:00 da manhã
+    - Se offline às 8:00, registra quando fica online
+    - Atualiza continuamente durante o dia
+    - Reseta à meia-noite
+    """
+    global rastreamento_dia
+    
+    if impressoes_atuais is None:
+        return 0
+    
+    rastreamento = rastreamento_dia[nome_impressora]
+    agora = datetime.now()
+    data_hoje = agora.date()
+    
+    # Verificar se mudou de dia
+    if rastreamento['data_lista'] != data_hoje:
+        # É um novo dia, resetar o rastreamento
+        rastreamento['data_lista'] = data_hoje
+        rastreamento['hora_primeiro_registro'] = None
+        rastreamento['impressoes_inicio'] = None
+        rastreamento['impressoes_dia'] = 0
+        rastreamento['registrado_hoje'] = False
+    
+    # Verificar se precisa fazer o primeiro registro do dia
+    if not rastreamento['registrado_hoje']:
+        # Verificar se já passou das 8:00 da manhã
+        if agora.hour >= 5:
+            # É hora de registrar
+            rastreamento['hora_primeiro_registro'] = agora.time()
+            rastreamento['impressoes_inicio'] = impressoes_atuais
+            rastreamento['impressoes_dia'] = 0
+            rastreamento['registrado_hoje'] = True
+    else:
+        # Já foi registrado, calcular a diferença
+        rastreamento['impressoes_dia'] = impressoes_atuais - rastreamento['impressoes_inicio']
+        # Se for negativo, significa que o contador foi resetado
+        if rastreamento['impressoes_dia'] < 0:
+            rastreamento['impressoes_dia'] = impressoes_atuais
+    
+    return rastreamento['impressoes_dia']
+
+def monitorar_impressora(ip, community, nome_impressora):
     """
     Coleta todas as informações de uma impressora via SNMP
     
     Argumentos:
         ip (str): Endereço IP da impressora
         community (str): String SNMP da comunidade
+        nome_impressora (str): ID da impressora para rastrear impressões
     
     Retorna:
         dict: Dicionário com dados da impressora (online, nome, série, etc)
               ou dict com online=False se desconectada
     """
+    global rastreamento_dia
+    
     # OIDs
     OID_UPTIME = '1.3.6.1.2.1.1.3.0'
     OID_NOME = '1.3.6.1.2.1.1.5.0'
     OID_NUM_SERIAL = '1.3.6.1.2.1.43.5.1.1.17.1'
-    OID_DESC = '1.3.6.1.2.1.1.1.0'
+    OID_MODELO = '1.3.6.1.2.1.25.3.2.1.3.1'
+    OID_ASSET_NUMBER = '1.3.6.1.4.1.2001.1.1.1.1.11.1.10.40.2.0'
     OID_IMPRESSOES = '1.3.6.1.2.1.43.10.2.1.4.1.1'
     OID_TONER = '1.3.6.1.2.1.43.11.1.1.9.1.1'
     OID_STATUS = '1.3.6.1.2.1.43.16.5.1.2.1.1'
@@ -140,8 +205,9 @@ def monitorar_impressora(ip, community):
 
     # 🔹 Coleta dados
     nome = snmp_get(ip, community, OID_NOME)
-    desc = snmp_get(ip, community, OID_DESC)
+    modelo = snmp_get(ip, community, OID_MODELO)
     num_serial = snmp_get(ip, community, OID_NUM_SERIAL)
+    asset_number = snmp_get(ip, community, OID_ASSET_NUMBER)
     impressoes = snmp_get(ip, community, OID_IMPRESSOES)
     toner = snmp_get(ip, community, OID_TONER)
     status = snmp_get(ip, community, OID_STATUS)
@@ -151,6 +217,9 @@ def monitorar_impressora(ip, community):
     # 🔹 Tratamento
     toner = int(toner) if toner and int(toner) >= 0 else None
     impressoes = int(impressoes) if impressoes else None
+    
+    # 🔹 Calcular impressões do dia com as regras específicas
+    impressoes_dia = calcular_impressoes_dia(nome_impressora, impressoes)
 
     mac = formatar_mac(mac_raw)
 
@@ -159,8 +228,10 @@ def monitorar_impressora(ip, community):
         "ip": ip,
         "nome": str(nome),
         "num_serie": str(num_serial),
-        "descricao": str(desc),
+        "modelo": str(modelo),
+        "asset_number": str(asset_number),
         "impressoes": impressoes,
+        "impressoes_dia": impressoes_dia,
         "toner": f'{toner}%',
         "status": str(status),
         "uptime": f"{days} Dias / {hours} Horas / {minutes} Minutos",
@@ -169,15 +240,20 @@ def monitorar_impressora(ip, community):
 
     }
 
-# 🔁 Thread: só coleta
 def monitor_loop(ip, community, nome_impressora):
     global resultado_global
     while True:
-        dados = monitorar_impressora(ip, community)
+        dados = monitorar_impressora(ip, community, nome_impressora)
         resultado_global['impressoras'][nome_impressora] = dados
         
         # Limpar terminal (Windows: cls, Linux/Mac: clear)
-        os.system('cls' if os.name == 'nt' else 'clear')
+        try:
+            if os.name == 'nt':
+                subprocess.run('cls', shell=True)
+            else:
+                subprocess.run('clear', shell=True)
+        except:
+            pass
         
         # Exibir resumo limpo
         print("\n" + "="*80)
@@ -190,10 +266,11 @@ def monitor_loop(ip, community, nome_impressora):
             nome_imp = dados_impressora.get('nome', 'Desconhecida')
             toner = dados_impressora.get('toner', 'N/A')
             impressoes = dados_impressora.get('impressoes', 'N/A')
+            impressoes_dia = dados_impressora.get('impressoes_dia', 0)
             mac = dados_impressora.get('mac', 'N/A')
             
             print(f"{status_icon} | {nome_imp}")
-            print(f"   📊 Impressões: {impressoes:,}  |  🎨 Toner: {toner}  |  🔗 MAC: {mac}")
+            print(f"   📊 Impressões Total: {impressoes:,}  |  📈 Hoje: {impressoes_dia:,}  |  🎨 Toner: {toner}  |  🔗 MAC: {mac}")
             if dados_impressora.get('online'):
                 uptime = dados_impressora.get('uptime', 'N/A')
                 print(f"   ⏱️  Uptime: {uptime}")

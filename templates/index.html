@@ -48,7 +48,8 @@ function criarColunaImpressora(nomeImpressora) {
                     <p><strong>IP:</strong> <span id="ip_${nomeImpressora}"></span></p>
                     <p><strong>MAC:</strong> <span id="mac_${nomeImpressora}"></span></p>
                     <p><strong>Nº Série:</strong> <span id="serial_${nomeImpressora}"></span></p>
-                    <p><strong>Descrição:</strong> <span id="descricao_${nomeImpressora}"></span></p>
+                    <p><strong>Modelo:</strong> <span id="modelo_${nomeImpressora}"></span></p>
+                    <p><strong>Asset Number:</strong> <span id="asset_number_${nomeImpressora}"></span></p>
                     <p><strong>Uptime:</strong> <span id="uptime_${nomeImpressora}"></span></p>
                 </div>
             </div>
@@ -57,7 +58,8 @@ function criarColunaImpressora(nomeImpressora) {
             <div class="card">
                 <h3>Recursos</h3>
                 <div class="info">
-                    <p><strong>Impressões:</strong> <span id="impressoes_${nomeImpressora}"></span></p>
+                    <p><strong>Impressões Total:</strong> <span id="impressoes_${nomeImpressora}"></span></p>
+                    <p><strong>Impressões Hoje:</strong> <span id="impressoes_dia_${nomeImpressora}"></span></p>
                     <p><strong>Toner:</strong> <span id="toner_${nomeImpressora}"></span></p>
                     <p><strong>Scanner:</strong> <span id="scanner_${nomeImpressora}"></span></p>
                 </div>
@@ -107,9 +109,11 @@ async function atualizar() {
                 ip: document.getElementById(`ip_${nomeImpressora}`),
                 mac: document.getElementById(`mac_${nomeImpressora}`),
                 serial: document.getElementById(`serial_${nomeImpressora}`),
-                descricao: document.getElementById(`descricao_${nomeImpressora}`),
+                modelo: document.getElementById(`modelo_${nomeImpressora}`),
+                asset_number: document.getElementById(`asset_number_${nomeImpressora}`),
                 uptime: document.getElementById(`uptime_${nomeImpressora}`),
                 impressoes: document.getElementById(`impressoes_${nomeImpressora}`),
+                impressoes_dia: document.getElementById(`impressoes_dia_${nomeImpressora}`),
                 toner: document.getElementById(`toner_${nomeImpressora}`),
                 scanner: document.getElementById(`scanner_${nomeImpressora}`)
             };
@@ -118,9 +122,11 @@ async function atualizar() {
             if (elements.ip) elements.ip.innerText = dataImpressora.ip || 'N/A';
             if (elements.mac) elements.mac.innerText = dataImpressora.mac || 'N/A';
             if (elements.serial) elements.serial.innerText = dataImpressora.num_serie || 'N/A';
-            if (elements.descricao) elements.descricao.innerText = dataImpressora.descricao || 'N/A';
+            if (elements.modelo) elements.modelo.innerText = dataImpressora.modelo || 'N/A';
+            if (elements.asset_number) elements.asset_number.innerText = dataImpressora.asset_number || 'N/A';
             if (elements.uptime) elements.uptime.innerText = dataImpressora.uptime || 'N/A';
             if (elements.impressoes) elements.impressoes.innerText = dataImpressora.impressoes ?? 'N/A';
+            if (elements.impressoes_dia) elements.impressoes_dia.innerText = dataImpressora.impressoes_dia ?? 'N/A';
             if (elements.toner) elements.toner.innerText = dataImpressora.toner || 'N/A';
             if (elements.scanner) elements.scanner.innerText = dataImpressora.scanner || 'N/A';
         }
