@@ -51,6 +51,10 @@ header h1 {
     font-size: 14px; /* menor texto */
 }
 
+.card-recursos {
+    background: #305a7c;
+}
+
 /* CARD IMPRESSORA */
 .printer {
     text-align: center;

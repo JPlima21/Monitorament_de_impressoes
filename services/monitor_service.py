@@ -174,6 +174,7 @@ class PrinterMonitorService:
         modelo = snmp_get(ip, community, SNMP_OIDS["modelo"])
         num_serial = snmp_get(ip, community, SNMP_OIDS["serial"])
         asset_number = snmp_get(ip, community, SNMP_OIDS["asset_number"])
+        location = snmp_get(ip, community, SNMP_OIDS["location"])
         impressoes = snmp_get(ip, community, SNMP_OIDS["impressoes"])
         toner = snmp_get(ip, community, SNMP_OIDS["toner"])
         status = snmp_get(ip, community, SNMP_OIDS["status"])
@@ -193,6 +194,7 @@ class PrinterMonitorService:
             "num_serie": str(num_serial),
             "modelo": str(modelo),
             "asset_number": str(asset_number),
+            "location": str(location),
             "impressoes": impressoes,
             "impressoes_dia": impressoes_dia,
             "toner": f"{toner}%" if toner is not None else "N/A",

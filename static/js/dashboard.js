@@ -1,3 +1,4 @@
+// Cria a estrutura HTML para uma coluna de impressora, usando o nome da impressora para gerar IDs únicos para os elementos
 function criarColunaImpressora(nomeImpressora) {
     return `
         <div class="printer-column">
@@ -22,11 +23,12 @@ function criarColunaImpressora(nomeImpressora) {
                     <p><strong>N Serie:</strong> <span id="serial_${nomeImpressora}"></span></p>
                     <p><strong>Modelo:</strong> <span id="modelo_${nomeImpressora}"></span></p>
                     <p><strong>Asset Number:</strong> <span id="asset_number_${nomeImpressora}"></span></p>
+                    <p><strong>Localizacao:</strong> <span id="location_${nomeImpressora}"></span></p>
                     <p><strong>Uptime:</strong> <span id="uptime_${nomeImpressora}"></span></p>
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card card-recursos">
                 <h3>Recursos</h3>
                 <div class="info">
                     <p><strong>Impressoes Total:</strong> <span id="impressoes_${nomeImpressora}"></span></p>
@@ -39,6 +41,7 @@ function criarColunaImpressora(nomeImpressora) {
     `;
 }
 
+// Atualiza o status de uma impressora (online/offline) e ajusta a classe CSS para refletir a cor correta
 function atualizarStatus(statusEl, online) {
     if (!statusEl) {
         return;
@@ -48,6 +51,7 @@ function atualizarStatus(statusEl, online) {
     statusEl.className = online ? "status online" : "status offline";
 }
 
+// Preenche os campos de uma impressora específica, usando "N/A" como fallback para dados ausentes
 function preencherCampos(nomeImpressora, dataImpressora) {
     const elements = {
         nome: document.getElementById(`nome_${nomeImpressora}`),
@@ -56,6 +60,7 @@ function preencherCampos(nomeImpressora, dataImpressora) {
         serial: document.getElementById(`serial_${nomeImpressora}`),
         modelo: document.getElementById(`modelo_${nomeImpressora}`),
         asset_number: document.getElementById(`asset_number_${nomeImpressora}`),
+        location: document.getElementById(`location_${nomeImpressora}`),
         uptime: document.getElementById(`uptime_${nomeImpressora}`),
         impressoes: document.getElementById(`impressoes_${nomeImpressora}`),
         impressoes_dia: document.getElementById(`impressoes_dia_${nomeImpressora}`),
@@ -63,12 +68,14 @@ function preencherCampos(nomeImpressora, dataImpressora) {
         scanner: document.getElementById(`scanner_${nomeImpressora}`),
     };
 
+    // Preenche os campos, usando "N/A" como fallback caso algum dado esteja ausente
     if (elements.nome) elements.nome.innerText = dataImpressora.nome || "N/A";
     if (elements.ip) elements.ip.innerText = dataImpressora.ip || "N/A";
     if (elements.mac) elements.mac.innerText = dataImpressora.mac || "N/A";
     if (elements.serial) elements.serial.innerText = dataImpressora.num_serie || "N/A";
     if (elements.modelo) elements.modelo.innerText = dataImpressora.modelo || "N/A";
     if (elements.asset_number) elements.asset_number.innerText = dataImpressora.asset_number || "N/A";
+    if (elements.location) elements.location.innerText = dataImpressora.location || "N/A";
     if (elements.uptime) elements.uptime.innerText = dataImpressora.uptime || "N/A";
     if (elements.impressoes) elements.impressoes.innerText = dataImpressora.impressoes ?? "N/A";
     if (elements.impressoes_dia) elements.impressoes_dia.innerText = dataImpressora.impressoes_dia ?? "N/A";
@@ -76,6 +83,7 @@ function preencherCampos(nomeImpressora, dataImpressora) {
     if (elements.scanner) elements.scanner.innerText = dataImpressora.scanner || "N/A";
 }
 
+// Inicializa o container com as colunas das impressoras, se ainda não tiver sido feito
 function inicializarContainer(container, impressoras) {
     if (container.dataset.initialized) {
         return;
@@ -90,6 +98,7 @@ function inicializarContainer(container, impressoras) {
     container.dataset.initialized = "true";
 }
 
+// Função principal para atualizar os dados das impressoras
 async function atualizar() {
     try {
         const res = await fetch("/api");
@@ -109,5 +118,6 @@ async function atualizar() {
     }
 }
 
-setInterval(atualizar, 4000);
+// Atualiza a cada 10 segundos
+setInterval(atualizar, 10000);
 atualizar();
