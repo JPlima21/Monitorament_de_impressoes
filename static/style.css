@@ -75,7 +75,7 @@ header h1 {
 /* CONTEUDO */
 .content {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
     gap: 12px;
 }
 
@@ -189,6 +189,35 @@ header h1 {
     font-size: 13px;
 }
 
+.recursos-layout {
+    width: 100%;
+}
+
+.recursos-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+    gap: 4px 18px;
+    align-items: start;
+}
+
+.recursos-coluna {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.recursos-coluna-direita {
+    text-align: right;
+    justify-self: end;
+    min-width: 130px;
+}
+
+.recurso-item {
+    margin: 0;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
 @container (max-width: 720px) {
     .printer-details-row {
         grid-template-columns: 1fr;
@@ -198,6 +227,15 @@ header h1 {
         grid-template-columns: 1fr;
     }
 
+    .recursos-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .recursos-coluna-direita {
+        justify-self: start;
+        text-align: left;
+        min-width: 0;
+    }
 }
 
 @media (max-width: 768px) {

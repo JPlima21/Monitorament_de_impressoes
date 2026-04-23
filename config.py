@@ -67,27 +67,27 @@ IMPRESSORAS_CONFIG = [
     },
     {
         "id": "impressora12",
-        "ip": "192.168.0.42",
+        "ip": "10.10.20.5",
         "community": "oabce",
     },
     {
         "id": "impressora13",
-        "ip": "192.168.0.43",
+        "ip": "10.10.20.6",
         "community": "oabce",
     },
     {
         "id": "impressora14",
-        "ip": "192.168.0.44",
+        "ip": "10.10.20.7",
         "community": "oabce",
     },
     {
         "id": "impressora15",
-        "ip": "192.168.0.45",
+        "ip": "10.10.20.8",
         "community": "oabce",
     },
     {
         "id": "impressora16",
-        "ip": "192.168.0.46",
+        "ip": "10.10.20.9",
         "community": "oabce",
     },
 ]

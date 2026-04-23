@@ -33,11 +33,18 @@ function criarColunaImpressora(nomeImpressora) {
                 <div class="printer-info-stack">
                     <div class="card card-recursos">
                         <h3>Recursos</h3>
-                        <div class="info">
-                            <p><strong>Impressoes Total:</strong> <span id="impressoes_${nomeImpressora}"></span></p>
-                            <p><strong>Impressoes Hoje:</strong> <span id="impressoes_dia_${nomeImpressora}"></span></p>
-                            <p><strong>Toner:</strong> <span id="toner_${nomeImpressora}"></span></p>
-                            <p><strong>Scanner:</strong> <span id="scanner_${nomeImpressora}"></span></p>
+                        <div class="info recursos-layout">
+                            <div class="recursos-grid">
+                                <div class="recursos-coluna">
+                                    <p class="recurso-item"><strong>Impressoes Total:</strong> <span id="impressoes_${nomeImpressora}"></span></p>
+                                    <p class="recurso-item"><strong>Toner:</strong> <span id="toner_${nomeImpressora}"></span></p>
+                                    <p class="recurso-item"><strong>Scanner:</strong> <span id="scanner_${nomeImpressora}"></span></p>
+                                </div>
+                                <div class="recursos-coluna recursos-coluna-direita">
+                                    <p class="recurso-item"><strong>Impressoes Hoje:</strong> <span id="impressoes_dia_${nomeImpressora}"></span></p>
+                                    <p class="recurso-item"><strong>Impressoes Mes:</strong> <span id="impressoes_mes_${nomeImpressora}"></span></p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -69,6 +76,7 @@ function preencherCampos(nomeImpressora, dataImpressora) {
         uptime: document.getElementById(`uptime_${nomeImpressora}`),
         impressoes: document.getElementById(`impressoes_${nomeImpressora}`),
         impressoes_dia: document.getElementById(`impressoes_dia_${nomeImpressora}`),
+        impressoes_mes: document.getElementById(`impressoes_mes_${nomeImpressora}`),
         toner: document.getElementById(`toner_${nomeImpressora}`),
         scanner: document.getElementById(`scanner_${nomeImpressora}`),
     };
@@ -83,6 +91,7 @@ function preencherCampos(nomeImpressora, dataImpressora) {
     if (elements.uptime) elements.uptime.innerText = dataImpressora.uptime || "N/A";
     if (elements.impressoes) elements.impressoes.innerText = dataImpressora.impressoes ?? "N/A";
     if (elements.impressoes_dia) elements.impressoes_dia.innerText = dataImpressora.impressoes_dia ?? "N/A";
+    if (elements.impressoes_mes) elements.impressoes_mes.innerText = dataImpressora.impressoes_mes ?? "N/A";
     if (elements.toner) elements.toner.innerText = dataImpressora.toner || "N/A";
     if (elements.scanner) elements.scanner.innerText = dataImpressora.scanner || "N/A";
 }
