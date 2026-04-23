@@ -1,6 +1,6 @@
 # Monitoramento de Impressoras
 
-Aplicacao Flask para monitorar impressoras via SNMP, exibir os dados em uma dashboard web e manter um historico local de impressoes em arquivo JSON.
+Aplicacao Flask para monitorar impressoras via SNMP, exibir os dados em uma dashboard web e manter um historico local de impressoes em banco SQLite.
 
 ## Visao Geral
 
@@ -24,7 +24,7 @@ Esses dados ficam disponiveis de duas formas:
 - interface web em `/`
 - API JSON em `/api`
 
-O historico de impressoes do dia e salvo no arquivo `historico_impressoes.json` e pode ser consultado pela rota `/api/historico`.
+O historico de impressoes do dia e salvo no arquivo `historico_impressoes.db` e pode ser consultado pela rota `/api/historico`.
 
 ## Estrutura do Projeto
 
@@ -32,7 +32,7 @@ O historico de impressoes do dia e salvo no arquivo `historico_impressoes.json` 
 Monitorament_de_impressoes/
 |- app.py
 |- config.py
-|- historico_impressoes.json
+|- historico_impressoes.db
 |- routes/
 |  |- api.py
 |  |- web.py
@@ -74,7 +74,7 @@ Arquivo central de configuracao.
 
 Contem:
 
-- caminho do arquivo de historico
+- caminho do banco de historico
 - intervalo entre coletas
 - lista de impressoras monitoradas
 - OIDs SNMP usados nas consultas
@@ -83,14 +83,16 @@ Esse arquivo existe para evitar valores fixos espalhados pelo codigo.
 
 ### `services/historico_service.py`
 
-Responsavel pela persistencia do historico em JSON.
+Responsavel pela persistencia do historico em SQLite.
 
 Funcoes principais:
 
-- `carregar_historico(caminho_arquivo)`
-  - le o arquivo JSON e devolve um dicionario Python
-- `salvar_historico(caminho_arquivo, historico)`
-  - grava o dicionario no arquivo JSON
+- `inicializar_banco(caminho_banco)`
+  - cria a tabela de historico se ela ainda nao existir
+- `carregar_historico(caminho_banco)`
+  - le o banco SQLite e devolve um dicionario Python
+- `salvar_registro_historico(caminho_banco, chave, registro)`
+  - grava ou atualiza um registro no banco SQLite
 
 Esse modulo isola a manipulacao de arquivo da logica de monitoramento.
 
@@ -137,7 +139,7 @@ Metodos principais:
 - `_calcular_impressoes_dia(...)`
   - calcula o total do dia com suporte a reset de contador
 - `_salvar_impressoes_dia(...)`
-  - registra um fechamento ou reset no historico JSON
+- registra um fechamento ou reset no banco SQLite
 - `_monitorar_impressora(...)`
   - consulta todos os OIDs e monta o dicionario final da impressora
 - `_monitor_loop(...)`
@@ -152,7 +154,7 @@ Rotas:
 - `/api`
   - retorna os dados atuais das impressoras
 - `/api/historico`
-  - retorna o historico salvo no arquivo JSON
+  - retorna o historico salvo no banco SQLite
 
 Esse modulo so expõe dados. Ele nao conhece os detalhes de SNMP nem de persistencia.
 
@@ -202,7 +204,7 @@ O fluxo geral da aplicacao e este:
 
 1. `app.py` cria a aplicacao Flask.
 2. `PrinterMonitorService` e instanciado.
-3. O servico carrega o historico existente de `historico_impressoes.json`.
+3. O servico carrega o historico existente de `historico_impressoes.db`.
 4. O servico cria o estado inicial das impressoras.
 5. O metodo `start()` inicia uma thread para cada impressora configurada.
 6. Cada thread executa `_monitor_loop(...)`.
@@ -220,6 +222,7 @@ O calculo de `impressoes_dia` segue esta logica:
 - quando muda o dia, o total anterior e salvo no historico
 - se o contador da impressora reiniciar e voltar para um valor menor, o sistema entende isso como reset
 - nesse caso, ele acumula o total anterior, salva um registro no historico e continua a contagem a partir do novo valor
+- o estado diario em andamento tambem e salvo no banco, para que a aplicacao retome a contagem apos reinicios
 
 Isso evita perder a contagem diaria mesmo quando o equipamento reinicia o contador.
 
@@ -259,7 +262,7 @@ Exemplo de estrutura:
 
 ### `GET /api/historico`
 
-Retorna o historico de impressoes salvo no arquivo JSON.
+Retorna o historico de impressoes salvo no banco SQLite.
 
 ## Como Executar
 
@@ -299,7 +302,7 @@ Exemplo:
 
 - o sistema usa threads para monitorar varias impressoras em paralelo
 - o acesso ao estado compartilhado e protegido com `threading.Lock()`
-- o historico fica em arquivo local JSON, sem banco de dados
+- o historico fica em arquivo local SQLite, sem necessidade de servidor externo
 - a interface nao consulta SNMP diretamente; ela apenas consome a API Flask
 
 ## Melhorias Futuras
@@ -309,4 +312,4 @@ Exemplo:
 - criar testes automatizados
 - documentar os OIDs por fabricante/modelo
 - permitir cadastro de impressoras pela interface
-- persistir dados em banco em vez de JSON
+- adicionar filtros e paginacao no historico via consultas SQL

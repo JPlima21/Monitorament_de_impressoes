@@ -1,7 +1,7 @@
-// Cria a estrutura HTML para uma coluna de impressora, usando o nome da impressora para gerar IDs únicos para os elementos
+// Cria a estrutura HTML para uma coluna de impressora, usando o nome da impressora para gerar IDs unicos para os elementos
 function criarColunaImpressora(nomeImpressora) {
     return `
-        <div class="printer-column">
+        <div class="printer-column" data-printer-id="${nomeImpressora}">
             <div class="card printer">
                 <div class="printer-image">
                     <img src="/static/OKI_CALLCENTER.jpeg" alt="Impressora OKI">
@@ -51,7 +51,7 @@ function atualizarStatus(statusEl, online) {
     statusEl.className = online ? "status online" : "status offline";
 }
 
-// Preenche os campos de uma impressora específica, usando "N/A" como fallback para dados ausentes
+// Preenche os campos de uma impressora especifica, usando "N/A" como fallback para dados ausentes
 function preencherCampos(nomeImpressora, dataImpressora) {
     const elements = {
         nome: document.getElementById(`nome_${nomeImpressora}`),
@@ -68,7 +68,6 @@ function preencherCampos(nomeImpressora, dataImpressora) {
         scanner: document.getElementById(`scanner_${nomeImpressora}`),
     };
 
-    // Preenche os campos, usando "N/A" como fallback caso algum dado esteja ausente
     if (elements.nome) elements.nome.innerText = dataImpressora.nome || "N/A";
     if (elements.ip) elements.ip.innerText = dataImpressora.ip || "N/A";
     if (elements.mac) elements.mac.innerText = dataImpressora.mac || "N/A";
@@ -83,22 +82,41 @@ function preencherCampos(nomeImpressora, dataImpressora) {
     if (elements.scanner) elements.scanner.innerText = dataImpressora.scanner || "N/A";
 }
 
-// Inicializa o container com as colunas das impressoras, se ainda não tiver sido feito
-function inicializarContainer(container, impressoras) {
-    if (container.dataset.initialized) {
-        return;
-    }
-
-    let html = "";
-    for (const nomeImpressora of Object.keys(impressoras)) {
-        html += criarColunaImpressora(nomeImpressora);
-    }
-
-    container.innerHTML = html;
-    container.dataset.initialized = "true";
+function ordenarImpressoras(impressoras) {
+    return Object.entries(impressoras)
+        .sort(([, dadosA], [, dadosB]) => Number(Boolean(dadosB.online)) - Number(Boolean(dadosA.online)))
+        .map(([nomeImpressora]) => nomeImpressora);
 }
 
-// Função principal para atualizar os dados das impressoras
+// Mantem o container sincronizado com as impressoras e coloca as online primeiro
+function sincronizarContainer(container, impressoras) {
+    if (!container.dataset.initialized) {
+        container.innerHTML = "";
+        container.dataset.initialized = "true";
+    }
+
+    const nomesOrdenados = ordenarImpressoras(impressoras);
+    const nomesAtuais = new Set(Object.keys(impressoras));
+
+    for (const coluna of container.querySelectorAll(".printer-column")) {
+        if (!nomesAtuais.has(coluna.dataset.printerId)) {
+            coluna.remove();
+        }
+    }
+
+    for (const nomeImpressora of nomesOrdenados) {
+        let coluna = container.querySelector(`[data-printer-id="${nomeImpressora}"]`);
+
+        if (!coluna) {
+            container.insertAdjacentHTML("beforeend", criarColunaImpressora(nomeImpressora));
+            coluna = container.querySelector(`[data-printer-id="${nomeImpressora}"]`);
+        }
+
+        container.appendChild(coluna);
+    }
+}
+
+// Funcao principal para atualizar os dados das impressoras
 async function atualizar() {
     try {
         const res = await fetch("/api");
@@ -106,7 +124,7 @@ async function atualizar() {
         const impressoras = data.impressoras || {};
         const container = document.getElementById("content-container");
 
-        inicializarContainer(container, impressoras);
+        sincronizarContainer(container, impressoras);
 
         for (const [nomeImpressora, dataImpressora] of Object.entries(impressoras)) {
             const statusEl = document.getElementById(`status_${nomeImpressora}`);

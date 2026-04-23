@@ -1,33 +1,53 @@
 import threading
 import time
-from datetime import datetime
+from datetime import date, datetime, time as time_type
 
 from config import SNMP_OIDS
-from services.historico_service import carregar_historico, salvar_historico
+from services.historico_service import (
+    carregar_historico,
+    carregar_rastreamento_diario,
+    salvar_registro_historico,
+    salvar_rastreamento_diario,
+)
 from services.snmp_service import formatar_mac, snmp_get
 
-
+''' serviço principal de monitoramento das impressoras, 
+responsável por coletar os dados via SNMP, 
+calcular as impressões diárias e manter o histórico atualizado'''
 class PrinterMonitorService:
-    def __init__(self, printer_configs, historico_file, monitor_interval=5):
-        self.printer_configs = printer_configs
-        self.historico_file = historico_file
-        self.monitor_interval = monitor_interval
+    def __init__(
+        self,
+        printer_configs,
+        historico_db_file,
+        monitor_interval=5,
+    ):
+        self.printer_configs = printer_configs # lista de dicionários com id, ip e community
+        self.historico_db_file = historico_db_file # caminho para o banco de dados SQLite onde o histórico é armazenado
+        self.monitor_interval = monitor_interval # intervalo em segundos entre cada coleta de dados
 
         self._lock = threading.Lock()
         self._threads_started = False
         self.resultado_global = {"impressoras": {}}
         self.rastreamento_dia = {}
-        self.historico_impressoes = carregar_historico(self.historico_file)
+        self.historico_impressoes = carregar_historico(self.historico_db_file)
+        self.rastreamento_dia_persistido = carregar_rastreamento_diario(self.historico_db_file)
 
-        salvar_historico(self.historico_file, self.historico_impressoes)
         self._inicializar_estado()
 
+    # inicializa o estado para cada impressora, garantindo que a estrutura de rastreamento diário esteja pronta
     def _inicializar_estado(self):
         for config in self.printer_configs:
             impressora_id = config["id"]
             self.resultado_global["impressoras"][impressora_id] = {"online": False}
-            self.rastreamento_dia[impressora_id] = self._criar_rastreamento_inicial()
+            rastreamento = self._criar_rastreamento_inicial()
+            rastreamento_persistido = self.rastreamento_dia_persistido.get(impressora_id)
 
+            if rastreamento_persistido:
+                rastreamento.update(self._normalizar_rastreamento_persistido(rastreamento_persistido))
+
+            self.rastreamento_dia[impressora_id] = rastreamento
+ 
+    # cria o estado inicial para rastreamento diário, garantindo que todas as chaves estejam presentes
     def _criar_rastreamento_inicial(self):
         return {
             "data_lista": None,
@@ -37,6 +57,57 @@ class PrinterMonitorService:
             "impressoes_dia": 0,
             "registrado_hoje": False,
         }
+
+    def _normalizar_rastreamento_persistido(self, rastreamento):
+        return {
+            "data_lista": self._parse_data(rastreamento.get("data_lista")),
+            "hora_primeiro_registro": self._parse_hora(rastreamento.get("hora_primeiro_registro")),
+            "impressoes_inicio": rastreamento.get("impressoes_inicio"),
+            "impressoes_acumuladas": int(rastreamento.get("impressoes_acumuladas", 0) or 0),
+            "impressoes_dia": int(rastreamento.get("impressoes_dia", 0) or 0),
+            "registrado_hoje": bool(rastreamento.get("registrado_hoje")),
+        }
+
+    def _parse_data(self, valor):
+        if not valor:
+            return None
+
+        try:
+            return date.fromisoformat(str(valor))
+        except ValueError:
+            return None
+
+    def _parse_hora(self, valor):
+        if not valor:
+            return None
+
+        try:
+            return time_type.fromisoformat(str(valor))
+        except ValueError:
+            return None
+
+    def _persistir_rastreamento_dia(self, nome_impressora):
+        rastreamento = self.rastreamento_dia[nome_impressora]
+        salvar_rastreamento_diario(
+            self.historico_db_file,
+            nome_impressora,
+            {
+                "data_lista": (
+                    rastreamento["data_lista"].isoformat()
+                    if rastreamento["data_lista"]
+                    else None
+                ),
+                "hora_primeiro_registro": (
+                    rastreamento["hora_primeiro_registro"].isoformat()
+                    if rastreamento["hora_primeiro_registro"]
+                    else None
+                ),
+                "impressoes_inicio": rastreamento["impressoes_inicio"],
+                "impressoes_acumuladas": rastreamento["impressoes_acumuladas"],
+                "impressoes_dia": rastreamento["impressoes_dia"],
+                "registrado_hoje": rastreamento["registrado_hoje"],
+            },
+        )
 
     # inicia as threads de monitoramento
     def start(self):
@@ -69,6 +140,7 @@ class PrinterMonitorService:
     # devolve histórico de impressões para /api/historico
     def get_historico(self):
         with self._lock:
+            self.historico_impressoes = carregar_historico(self.historico_db_file)
             return dict(self.historico_impressoes)
 
     # método antigo, mantido para referência
@@ -87,7 +159,7 @@ class PrinterMonitorService:
         chave = f"{nome_impressora}_{data_str}_{motivo}_{timestamp}"
         total_consolidado = self._obter_total_rastreamento(rastreamento)
 
-        self.historico_impressoes[chave] = {
+        registro = {
             "impressora": nome_impressora,
             "data": data_str,
             "hora_inicio": (
@@ -99,8 +171,9 @@ class PrinterMonitorService:
             "motivo": motivo,
             "timestamp_salvo": str(datetime.now()),
         }
+        self.historico_impressoes[chave] = registro
 
-        salvar_historico(self.historico_file, self.historico_impressoes)
+        salvar_registro_historico(self.historico_db_file, chave, registro)
 
     # calcula impressões do dia, considerando reinício do contador e acumulados
     def _calcular_impressoes_dia(self, nome_impressora, impressoes_atuais):
@@ -116,6 +189,7 @@ class PrinterMonitorService:
             rastreamento["hora_primeiro_registro"] = agora.time()
             rastreamento["impressoes_inicio"] = impressoes_atuais
             rastreamento["registrado_hoje"] = True
+            self._persistir_rastreamento_dia(nome_impressora)
             return 0
 
         if rastreamento["data_lista"] != data_hoje:
@@ -126,7 +200,17 @@ class PrinterMonitorService:
             rastreamento["impressoes_acumuladas"] = 0
             rastreamento["impressoes_dia"] = 0
             rastreamento["registrado_hoje"] = True
+            self._persistir_rastreamento_dia(nome_impressora)
             return 0
+
+        if rastreamento["impressoes_inicio"] is None:
+            rastreamento["impressoes_inicio"] = impressoes_atuais
+            rastreamento["hora_primeiro_registro"] = (
+                rastreamento["hora_primeiro_registro"] or agora.time()
+            )
+            rastreamento["registrado_hoje"] = True
+            self._persistir_rastreamento_dia(nome_impressora)
+            return self._obter_total_rastreamento(rastreamento)
 
         if rastreamento["impressoes_inicio"] is not None:
             total = impressoes_atuais - rastreamento["impressoes_inicio"]
@@ -147,6 +231,9 @@ class PrinterMonitorService:
                 total = impressoes_atuais
 
             rastreamento["impressoes_dia"] = total
+            rastreamento["registrado_hoje"] = True
+
+        self._persistir_rastreamento_dia(nome_impressora)
 
         return self._obter_total_rastreamento(rastreamento)
 
