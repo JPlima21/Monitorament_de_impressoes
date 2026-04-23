@@ -1,6 +1,6 @@
 body {
     margin: 0;
-    font-family: 'Segoe UI', sans-serif;
+    font-family: "Segoe UI", sans-serif;
     background: #0f172a;
     color: #e2e8f0;
 }
@@ -19,6 +19,43 @@ header h1 {
     margin: 0;
 }
 
+.resumo-status {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 220px));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.resumo-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.resumo-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.8;
+}
+
+.resumo-valor {
+    font-size: 28px;
+    line-height: 1;
+}
+
+.resumo-online {
+    border-left: 4px solid #22c55e;
+}
+
+.resumo-offline {
+    border-left: 4px solid #ef4444;
+}
+
+.resumo-total {
+    border-left: 4px solid #38bdf8;
+}
+
 /* STATUS */
 .status {
     padding: 8px 15px;
@@ -35,24 +72,49 @@ header h1 {
     background: #ef4444;
 }
 
-/* CONTEÚDO - Grid com 4 colunas por linha */
+/* CONTEUDO */
 .content {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
     gap: 12px;
 }
 
 /* CARD */
 .card {
     background: #1e293b;
-    padding: 12px; /* antes era 20px */
-    border-radius: 10px; /* antes 15px */
-    box-shadow: 0 0 6px rgba(0,0,0,0.3);
-    font-size: 14px; /* menor texto */
+    padding: 9px;
+    border-radius: 10px;
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
+    font-size: 10px;
 }
 
 .card-recursos {
     background: #305a7c;
+}
+
+.printer-header-card {
+    padding-bottom: 10px;
+}
+
+/* COLUNA DE IMPRESSORA */
+.printer-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    container-type: inline-size;
+}
+
+.printer-details-row {
+    display: grid;
+    grid-template-columns: minmax(320px, 2fr) minmax(180px, 1fr);
+    gap: 12px;
+    align-items: stretch;
+}
+
+.printer-info-stack {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
 }
 
 /* CARD IMPRESSORA */
@@ -60,13 +122,25 @@ header h1 {
     text-align: center;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
+    justify-content: flex-start;
+    align-items: stretch;
+}
+
+.printer-image-card {
+    min-height: 100%;
+}
+
+.printer-image-layout {
+    display: grid;
+    grid-template-columns: minmax(120px, 160px) minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    width: 100%;
 }
 
 .printer-image {
-    font-size: 40px; /* antes 60px */
-    margin-bottom: 5px;
+    text-align: center;
+    margin-bottom: 0;
 }
 
 .printer-image img {
@@ -76,21 +150,21 @@ header h1 {
     object-fit: contain;
 }
 
-/* PAINEL DE INFORMAÇÕES */
-.info-panel {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
+.printer-image-info {
+    width: 100%;
+    text-align: left;
 }
 
-/* COLUNA DE IMPRESSORA */
-.printer-column {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+.printer-image-info h3 {
+    margin: 0 0 10px;
+    font-size: 18px;
+}
+.card-recursos h3 {
+    margin: 0 0 10px;
+    font-size: 18px;
 }
 
-/* CARD HEADER - Status e Nome */
+/* CARD HEADER */
 .card-header {
     display: flex;
     justify-content: space-between;
@@ -111,6 +185,23 @@ header h1 {
 
 /* INFO */
 .info p {
-    margin: 4px 0; /* antes 10px */
+    margin: 4px 0;
     font-size: 13px;
+}
+
+@container (max-width: 720px) {
+    .printer-details-row {
+        grid-template-columns: 1fr;
+    }
+
+    .printer-info-stack {
+        grid-template-columns: 1fr;
+    }
+
+}
+
+@media (max-width: 768px) {
+    .content {
+        grid-template-columns: 1fr;
+    }
 }

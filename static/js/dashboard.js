@@ -2,39 +2,44 @@
 function criarColunaImpressora(nomeImpressora) {
     return `
         <div class="printer-column" data-printer-id="${nomeImpressora}">
-            <div class="card printer">
-                <div class="printer-image">
-                    <img src="/static/OKI_CALLCENTER.jpeg" alt="Impressora OKI">
-                </div>
-            </div>
-
-            <div class="card">
+            <div class="card printer-header-card">
                 <div class="card-header">
                     <h2>Impressora <span id="nome_${nomeImpressora}"></span></h2>
                     <div class="status offline" id="status_${nomeImpressora}">OFFLINE</div>
                 </div>
             </div>
 
-            <div class="card">
-                <h3>Informacoes</h3>
-                <div class="info">
-                    <p><strong>IP:</strong> <span id="ip_${nomeImpressora}"></span></p>
-                    <p><strong>MAC:</strong> <span id="mac_${nomeImpressora}"></span></p>
-                    <p><strong>N Serie:</strong> <span id="serial_${nomeImpressora}"></span></p>
-                    <p><strong>Modelo:</strong> <span id="modelo_${nomeImpressora}"></span></p>
-                    <p><strong>Asset Number:</strong> <span id="asset_number_${nomeImpressora}"></span></p>
-                    <p><strong>Localizacao:</strong> <span id="location_${nomeImpressora}"></span></p>
-                    <p><strong>Uptime:</strong> <span id="uptime_${nomeImpressora}"></span></p>
+            <div class="printer-details-row">
+                <div class="card printer printer-image-card">
+                    <div class="printer-image-layout">
+                        <div class="printer-image">
+                            <img src="/static/OKI_CALLCENTER.jpeg" alt="Impressora OKI">
+                        </div>
+                        <div class="printer-image-info">
+                            <h3>Informacoes</h3>
+                            <div class="info">
+                                <p><strong>IP:</strong> <span id="ip_${nomeImpressora}"></span></p>
+                                <p><strong>MAC:</strong> <span id="mac_${nomeImpressora}"></span></p>
+                                <p><strong>N Serie:</strong> <span id="serial_${nomeImpressora}"></span></p>
+                                <p><strong>Modelo:</strong> <span id="modelo_${nomeImpressora}"></span></p>
+                                <p><strong>Asset Number:</strong> <span id="asset_number_${nomeImpressora}"></span></p>
+                                <p><strong>Localizacao:</strong> <span id="location_${nomeImpressora}"></span></p>
+                                <p><strong>Uptime:</strong> <span id="uptime_${nomeImpressora}"></span></p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
 
-            <div class="card card-recursos">
-                <h3>Recursos</h3>
-                <div class="info">
-                    <p><strong>Impressoes Total:</strong> <span id="impressoes_${nomeImpressora}"></span></p>
-                    <p><strong>Impressoes Hoje:</strong> <span id="impressoes_dia_${nomeImpressora}"></span></p>
-                    <p><strong>Toner:</strong> <span id="toner_${nomeImpressora}"></span></p>
-                    <p><strong>Scanner:</strong> <span id="scanner_${nomeImpressora}"></span></p>
+                <div class="printer-info-stack">
+                    <div class="card card-recursos">
+                        <h3>Recursos</h3>
+                        <div class="info">
+                            <p><strong>Impressoes Total:</strong> <span id="impressoes_${nomeImpressora}"></span></p>
+                            <p><strong>Impressoes Hoje:</strong> <span id="impressoes_dia_${nomeImpressora}"></span></p>
+                            <p><strong>Toner:</strong> <span id="toner_${nomeImpressora}"></span></p>
+                            <p><strong>Scanner:</strong> <span id="scanner_${nomeImpressora}"></span></p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -82,6 +87,21 @@ function preencherCampos(nomeImpressora, dataImpressora) {
     if (elements.scanner) elements.scanner.innerText = dataImpressora.scanner || "N/A";
 }
 
+function atualizarResumo(impressoras) {
+    const listaImpressoras = Object.values(impressoras);
+    const total = listaImpressoras.length;
+    const online = listaImpressoras.filter((dados) => Boolean(dados.online)).length;
+    const offline = total - online;
+
+    const totalEl = document.getElementById("total-impressoras");
+    const onlineEl = document.getElementById("total-online");
+    const offlineEl = document.getElementById("total-offline");
+
+    if (totalEl) totalEl.innerText = total;
+    if (onlineEl) onlineEl.innerText = online;
+    if (offlineEl) offlineEl.innerText = offline;
+}
+
 function ordenarImpressoras(impressoras) {
     return Object.entries(impressoras)
         .sort(([, dadosA], [, dadosB]) => Number(Boolean(dadosB.online)) - Number(Boolean(dadosA.online)))
@@ -124,6 +144,7 @@ async function atualizar() {
         const impressoras = data.impressoras || {};
         const container = document.getElementById("content-container");
 
+        atualizarResumo(impressoras);
         sincronizarContainer(container, impressoras);
 
         for (const [nomeImpressora, dataImpressora] of Object.entries(impressoras)) {
