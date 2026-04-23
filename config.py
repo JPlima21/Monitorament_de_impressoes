@@ -1,8 +1,11 @@
+import os
 from pathlib import Path
 
 
 BASE_DIR = Path(__file__).resolve().parent
-HISTORICO_FILE = BASE_DIR / "historico_impressoes.json"
+HISTORICO_DB_FILE = Path(
+    os.getenv("HISTORICO_DB_FILE", str(BASE_DIR / "historico_impressoes.db"))
+)
 
 MONITOR_INTERVAL_SECONDS = 5
 
