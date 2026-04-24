@@ -13,7 +13,7 @@ function criarColunaImpressora(nomeImpressora) {
                 <div class="card printer printer-image-card">
                     <div class="printer-image-layout">
                         <div class="printer-image">
-                            <img src="/static/OKI_CALLCENTER.jpeg" alt="Impressora OKI">
+                            <img id="imagem_${nomeImpressora}" src="/static/OKI_CALLCENTER.jpeg" alt="Impressora">
                         </div>
                         <div class="printer-image-info">
                             <h3>Informacoes</h3>
@@ -35,14 +35,16 @@ function criarColunaImpressora(nomeImpressora) {
                         <h3>Recursos</h3>
                         <div class="info recursos-layout">
                             <div class="recursos-grid">
-                                <div class="recursos-coluna">
-                                    <p class="recurso-item"><strong>Impressoes Total:</strong> <span id="impressoes_${nomeImpressora}"></span></p>
-                                    <p class="recurso-item"><strong>Toner:</strong> <span id="toner_${nomeImpressora}"></span></p>
+                                <div class="recursos-coluna recursos-principais">
+                                    <p class="recurso-item"><strong>Impressoes:</strong> <span id="impressoes_${nomeImpressora}"></span></p>
+                                    <p class="recurso-item"><strong>Copias:</strong> <span id="copias_${nomeImpressora}"></span></p>
                                     <p class="recurso-item"><strong>Scanner:</strong> <span id="scanner_${nomeImpressora}"></span></p>
+                                    <p class="recurso-item"><strong>Impressoes TOTAL:</strong> <span id="total_impressoes_${nomeImpressora}"></span></p>
                                 </div>
-                                <div class="recursos-coluna recursos-coluna-direita">
+                                <div class="recursos-coluna recursos-indices">
                                     <p class="recurso-item"><strong>Impressoes Hoje:</strong> <span id="impressoes_dia_${nomeImpressora}"></span></p>
                                     <p class="recurso-item"><strong>Impressoes Mes:</strong> <span id="impressoes_mes_${nomeImpressora}"></span></p>
+                                    <p class="recurso-item"><strong>Toner:</strong> <span id="toner_${nomeImpressora}"></span></p>
                                 </div>
                             </div>
                         </div>
@@ -51,6 +53,29 @@ function criarColunaImpressora(nomeImpressora) {
             </div>
         </div>
     `;
+}
+
+function obterImagemPorModelo(modelo) {
+    const modeloNormalizado = String(modelo || "").toLowerCase();
+
+    if (modeloNormalizado.includes("epson")) {
+        return {
+            src: "/static/Epson.JPG",
+            alt: "Impressora Epson",
+        };
+    }
+
+    if (modeloNormalizado.includes("oki")) {
+        return {
+            src: "/static/OKI_CALLCENTER.jpeg",
+            alt: "Impressora OKI",
+        };
+    }
+
+    return {
+        src: "/static/OKI_CALLCENTER.jpeg",
+        alt: "Impressora",
+    };
 }
 
 // Atualiza o status de uma impressora (online/offline) e ajusta a classe CSS para refletir a cor correta
@@ -66,6 +91,7 @@ function atualizarStatus(statusEl, online) {
 // Preenche os campos de uma impressora especifica, usando "N/A" como fallback para dados ausentes
 function preencherCampos(nomeImpressora, dataImpressora) {
     const elements = {
+        imagem: document.getElementById(`imagem_${nomeImpressora}`),
         nome: document.getElementById(`nome_${nomeImpressora}`),
         ip: document.getElementById(`ip_${nomeImpressora}`),
         mac: document.getElementById(`mac_${nomeImpressora}`),
@@ -74,7 +100,9 @@ function preencherCampos(nomeImpressora, dataImpressora) {
         asset_number: document.getElementById(`asset_number_${nomeImpressora}`),
         location: document.getElementById(`location_${nomeImpressora}`),
         uptime: document.getElementById(`uptime_${nomeImpressora}`),
+        total_impressoes: document.getElementById(`total_impressoes_${nomeImpressora}`),
         impressoes: document.getElementById(`impressoes_${nomeImpressora}`),
+        copias: document.getElementById(`copias_${nomeImpressora}`),
         impressoes_dia: document.getElementById(`impressoes_dia_${nomeImpressora}`),
         impressoes_mes: document.getElementById(`impressoes_mes_${nomeImpressora}`),
         toner: document.getElementById(`toner_${nomeImpressora}`),
@@ -82,6 +110,11 @@ function preencherCampos(nomeImpressora, dataImpressora) {
     };
 
     if (elements.nome) elements.nome.innerText = dataImpressora.nome || "N/A";
+    if (elements.imagem) {
+        const imagem = obterImagemPorModelo(dataImpressora.modelo);
+        elements.imagem.src = imagem.src;
+        elements.imagem.alt = imagem.alt;
+    }
     if (elements.ip) elements.ip.innerText = dataImpressora.ip || "N/A";
     if (elements.mac) elements.mac.innerText = dataImpressora.mac || "N/A";
     if (elements.serial) elements.serial.innerText = dataImpressora.num_serie || "N/A";
@@ -89,7 +122,9 @@ function preencherCampos(nomeImpressora, dataImpressora) {
     if (elements.asset_number) elements.asset_number.innerText = dataImpressora.asset_number || "N/A";
     if (elements.location) elements.location.innerText = dataImpressora.location || "N/A";
     if (elements.uptime) elements.uptime.innerText = dataImpressora.uptime || "N/A";
+    if (elements.total_impressoes) elements.total_impressoes.innerText = dataImpressora.total_impressoes ?? "N/A";
     if (elements.impressoes) elements.impressoes.innerText = dataImpressora.impressoes ?? "N/A";
+    if (elements.copias) elements.copias.innerText = dataImpressora.copias ?? "N/A";
     if (elements.impressoes_dia) elements.impressoes_dia.innerText = dataImpressora.impressoes_dia ?? "N/A";
     if (elements.impressoes_mes) elements.impressoes_mes.innerText = dataImpressora.impressoes_mes ?? "N/A";
     if (elements.toner) elements.toner.innerText = dataImpressora.toner || "N/A";

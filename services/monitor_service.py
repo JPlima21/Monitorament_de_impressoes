@@ -379,18 +379,22 @@ class PrinterMonitorService:
         num_serial = snmp_get(ip, community, SNMP_OIDS["serial"])
         asset_number = snmp_get(ip, community, SNMP_OIDS["asset_number"])
         location = snmp_get(ip, community, SNMP_OIDS["location"])
+        total_impressoes = snmp_get(ip, community, SNMP_OIDS["total_impressoes"])
         impressoes = snmp_get(ip, community, SNMP_OIDS["impressoes"])
+        copias = snmp_get(ip, community, SNMP_OIDS["copias"])
         toner = snmp_get(ip, community, SNMP_OIDS["toner"])
         status = snmp_get(ip, community, SNMP_OIDS["status"])
         scanner = snmp_get(ip, community, SNMP_OIDS["scanner"])
         mac_raw = snmp_get(ip, community, SNMP_OIDS["mac"])
 
         toner = int(toner) if toner and int(toner) >= 0 else None
+        total_impressoes = int(total_impressoes) if total_impressoes else None
         impressoes = int(impressoes) if impressoes else None
+        copias = int(copias) if copias else None
 
         with self._lock:
-            impressoes_dia = self._calcular_impressoes_dia(nome_impressora, impressoes)
-            impressoes_mes = self._calcular_impressoes_mes(nome_impressora, impressoes)
+            impressoes_dia = self._calcular_impressoes_dia(nome_impressora, total_impressoes)
+            impressoes_mes = self._calcular_impressoes_mes(nome_impressora, total_impressoes)
 
             self._persistir_cache_impressora(
                 nome_impressora,
@@ -415,7 +419,9 @@ class PrinterMonitorService:
             "modelo": str(modelo),
             "asset_number": str(asset_number),
             "location": str(location),
+            "total_impressoes": total_impressoes,
             "impressoes": impressoes,
+            "copias": copias,
             "impressoes_dia": impressoes_dia,
             "impressoes_mes": impressoes_mes,
             "toner": f"{toner}%" if toner is not None else "N/A",

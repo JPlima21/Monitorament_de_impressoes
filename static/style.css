@@ -194,31 +194,40 @@ header h1 {
 }
 
 .recursos-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, auto);
-    gap: 4px 18px;
-    align-items: start;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
 }
 
 .recursos-coluna {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
 }
 
-.recursos-coluna-direita {
+.recursos-principais {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.recursos-indices {
+    flex: 0 0 auto;
+    margin-left: auto;
+    min-width: 150px;
+    margin-top: -3px;
     text-align: right;
-    justify-self: end;
-    min-width: 130px;
+    align-items: flex-end;
 }
 
 .recurso-item {
-    margin: 0;
+    margin: -5px 0;
     line-height: 1.2;
     white-space: nowrap;
 }
 
-@container (max-width: 720px) {
+@container (max-width: 480px) {
     .printer-details-row {
         grid-template-columns: 1fr;
     }
@@ -226,15 +235,18 @@ header h1 {
     .printer-info-stack {
         grid-template-columns: 1fr;
     }
+}
 
+@container (max-width: 340px) {
     .recursos-grid {
-        grid-template-columns: 1fr;
+        flex-direction: column;
     }
 
-    .recursos-coluna-direita {
-        justify-self: start;
+    .recursos-indices {
+        margin-left: 0;
         text-align: left;
         min-width: 0;
+        align-items: flex-start;
     }
 }
 
