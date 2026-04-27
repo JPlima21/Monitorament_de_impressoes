@@ -36,15 +36,24 @@ function criarColunaImpressora(nomeImpressora) {
                         <div class="info recursos-layout">
                             <div class="recursos-grid">
                                 <div class="recursos-coluna recursos-principais">
-                                    <p class="recurso-item"><strong>Impressoes:</strong> <span id="impressoes_${nomeImpressora}"></span></p>
-                                    <p class="recurso-item"><strong>Copias:</strong> <span id="copias_${nomeImpressora}"></span></p>
-                                    <p class="recurso-item"><strong>Scanner:</strong> <span id="scanner_${nomeImpressora}"></span></p>
-                                    <p class="recurso-item"><strong>Impressoes TOTAL:</strong> <span id="total_impressoes_${nomeImpressora}"></span></p>
+                                    <p class="recurso-item"><strong>Impressoes</strong> <span id="impressoes_${nomeImpressora}"></span></p>
+                                    <p class="recurso-item"><strong>Copias</strong> <span id="copias_${nomeImpressora}"></span></p>
+                                    <p class="recurso-item"><strong>Scanner</strong> <span id="scanner_${nomeImpressora}"></span></p>
+                                    <p class="recurso-item"><strong>Total</strong> <span id="total_impressoes_${nomeImpressora}"></span></p>
                                 </div>
                                 <div class="recursos-coluna recursos-indices">
-                                    <p class="recurso-item"><strong>Impressoes Hoje:</strong> <span id="impressoes_dia_${nomeImpressora}"></span></p>
-                                    <p class="recurso-item"><strong>Impressoes Mes:</strong> <span id="impressoes_mes_${nomeImpressora}"></span></p>
-                                    <p class="recurso-item"><strong>Toner:</strong> <span id="toner_${nomeImpressora}"></span></p>
+                                    <div class="indice-card indice-hoje">
+                                        <span class="indice-label">Hoje</span>
+                                        <strong class="indice-valor" id="impressoes_dia_${nomeImpressora}"></strong>
+                                    </div>
+                                    <div class="indice-card indice-mes">
+                                        <span class="indice-label">Mes</span>
+                                        <strong class="indice-valor" id="impressoes_mes_${nomeImpressora}"></strong>
+                                    </div>
+                                    <div class="indice-card indice-toner">
+                                        <span class="indice-label">Toner</span>
+                                        <strong class="indice-valor" id="toner_${nomeImpressora}"></strong>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -88,6 +97,23 @@ function atualizarStatus(statusEl, online) {
     statusEl.className = online ? "status online" : "status offline";
 }
 
+function formatarNumeroPainel(valor) {
+    if (valor === null || valor === undefined || valor === "") {
+        return "N/A";
+    }
+
+    if (typeof valor === "number") {
+        return new Intl.NumberFormat("pt-BR").format(valor);
+    }
+
+    const numero = Number(valor);
+    if (!Number.isNaN(numero) && String(valor).trim() !== "") {
+        return new Intl.NumberFormat("pt-BR").format(numero);
+    }
+
+    return valor;
+}
+
 // Preenche os campos de uma impressora especifica, usando "N/A" como fallback para dados ausentes
 function preencherCampos(nomeImpressora, dataImpressora) {
     const elements = {
@@ -122,11 +148,11 @@ function preencherCampos(nomeImpressora, dataImpressora) {
     if (elements.asset_number) elements.asset_number.innerText = dataImpressora.asset_number || "N/A";
     if (elements.location) elements.location.innerText = dataImpressora.location || "N/A";
     if (elements.uptime) elements.uptime.innerText = dataImpressora.uptime || "N/A";
-    if (elements.total_impressoes) elements.total_impressoes.innerText = dataImpressora.total_impressoes ?? "N/A";
-    if (elements.impressoes) elements.impressoes.innerText = dataImpressora.impressoes ?? "N/A";
-    if (elements.copias) elements.copias.innerText = dataImpressora.copias ?? "N/A";
-    if (elements.impressoes_dia) elements.impressoes_dia.innerText = dataImpressora.impressoes_dia ?? "N/A";
-    if (elements.impressoes_mes) elements.impressoes_mes.innerText = dataImpressora.impressoes_mes ?? "N/A";
+    if (elements.total_impressoes) elements.total_impressoes.innerText = formatarNumeroPainel(dataImpressora.total_impressoes);
+    if (elements.impressoes) elements.impressoes.innerText = formatarNumeroPainel(dataImpressora.impressoes);
+    if (elements.copias) elements.copias.innerText = formatarNumeroPainel(dataImpressora.copias);
+    if (elements.impressoes_dia) elements.impressoes_dia.innerText = formatarNumeroPainel(dataImpressora.impressoes_dia);
+    if (elements.impressoes_mes) elements.impressoes_mes.innerText = formatarNumeroPainel(dataImpressora.impressoes_mes);
     if (elements.toner) elements.toner.innerText = dataImpressora.toner || "N/A";
     if (elements.scanner) elements.scanner.innerText = dataImpressora.scanner || "N/A";
 }

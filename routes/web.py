@@ -8,4 +8,8 @@ def create_web_blueprint():
     def home():
         return render_template("index.html")
 
+    @web_bp.route("/graficos")
+    def graficos():
+        return render_template("graficos.html")
+
     return web_bp
