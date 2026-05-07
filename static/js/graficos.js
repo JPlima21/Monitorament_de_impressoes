@@ -17,6 +17,7 @@ const graficosState = {
     historicoDiario: new Map(),
     historicoDiarioCompleto: new Map(),
     historicoMensal: new Map(),
+    rotulosImpressoras: new Map(),
     abaAtiva: "painel-grafico-dia",
 };
 let resizeTimeoutId = null;
@@ -80,6 +81,38 @@ function atualizarResumo(impressoras) {
     if (totalEl) totalEl.innerText = total;
     if (onlineEl) onlineEl.innerText = online;
     if (offlineEl) offlineEl.innerText = offline;
+}
+
+function obterIdentificadorImpressora(item) {
+    return String(item?.id || item?.impressora || item?.nome || "").trim();
+}
+
+function obterRotuloImpressora(item) {
+    return String(item?.impressora_nome || item?.nome || item?.id || item?.impressora || "").trim();
+}
+
+function construirMapaRotulosImpressoras(impressoras, historico) {
+    const rotulos = new Map();
+
+    historico.forEach((registro) => {
+        const id = obterIdentificadorImpressora(registro);
+        const rotulo = obterRotuloImpressora(registro);
+
+        if (id) {
+            rotulos.set(id, rotulo || id);
+        }
+    });
+
+    impressoras.forEach((item) => {
+        const id = obterIdentificadorImpressora(item);
+        const rotulo = obterRotuloImpressora(item);
+
+        if (id) {
+            rotulos.set(id, rotulo || id);
+        }
+    });
+
+    return rotulos;
 }
 
 function ordenarImpressoras(impressoras) {
@@ -237,23 +270,47 @@ function construirMapaHistoricoDiario(registros) {
 }
 
 function construirMapaHistoricoDiarioCompleto(mapaHistoricoDiario, impressoras) {
-    const mapaCompleto = new Map(mapaHistoricoDiario);
+    const mapaCompleto = new Map(
+        [...mapaHistoricoDiario.entries()].map(([data, valoresDia]) => [data, new Map(valoresDia)]),
+    );
     const dataAtual = obterDataAtualIso();
     const valoresHoje = new Map(mapaCompleto.get(dataAtual) || []);
+    const todasImpressoras = new Set();
+
+    mapaCompleto.forEach((valoresDia) => {
+        [...valoresDia.keys()].forEach((impressoraId) => {
+            if (impressoraId) {
+                todasImpressoras.add(impressoraId);
+            }
+        });
+    });
 
     impressoras.forEach((item) => {
-        const nome = String(item.nome || item.id || "").trim();
+        const impressoraId = obterIdentificadorImpressora(item);
 
-        if (!nome) {
+        if (!impressoraId) {
             return;
         }
 
-        valoresHoje.set(nome, Number(item.impressoes_dia || 0));
+        todasImpressoras.add(impressoraId);
+        valoresHoje.set(impressoraId, Number(item.impressoes_dia || 0));
     });
 
     if (valoresHoje.size) {
         mapaCompleto.set(dataAtual, valoresHoje);
     }
+
+    [...mapaCompleto.entries()].forEach(([data, valoresDia]) => {
+        const valoresNormalizados = new Map(valoresDia);
+
+        todasImpressoras.forEach((impressoraId) => {
+            if (!valoresNormalizados.has(impressoraId)) {
+                valoresNormalizados.set(impressoraId, 0);
+            }
+        });
+
+        mapaCompleto.set(data, valoresNormalizados);
+    });
 
     return mapaCompleto;
 }
@@ -301,7 +358,11 @@ function agruparMapaPorData(mapaDatas) {
     const impressoras = [...mapaImpressoras.keys()].sort((a, b) => a.localeCompare(b, "pt-BR"));
     return {
         datas: datasOrdenadas,
-        impressoras: impressoras.map((nome) => ({ nome, cor: mapaImpressoras.get(nome) })),
+        impressoras: impressoras.map((id) => ({
+            id,
+            nome: graficosState.rotulosImpressoras.get(id) || id,
+            cor: mapaImpressoras.get(id),
+        })),
         valores: mapaDatas,
     };
 }
@@ -330,8 +391,8 @@ function renderizarGraficoLinhaHistorico(hostId, mapaHistoricoDiario) {
     const todosValores = [];
 
     agrupado.datas.forEach((data) => {
-        agrupado.impressoras.forEach(({ nome }) => {
-            todosValores.push(agrupado.valores.get(data).get(nome) ?? 0);
+        agrupado.impressoras.forEach(({ id }) => {
+            todosValores.push(agrupado.valores.get(data).get(id) ?? 0);
         });
     });
 
@@ -348,9 +409,9 @@ function renderizarGraficoLinhaHistorico(hostId, mapaHistoricoDiario) {
 
     const passoX = agrupado.datas.length > 1 ? area.width / (agrupado.datas.length - 1) : 0;
 
-    agrupado.impressoras.forEach(({ nome, cor }) => {
+    agrupado.impressoras.forEach(({ id, nome, cor }) => {
         const pontos = agrupado.datas.map((data, indice) => {
-            const valor = agrupado.valores.get(data).get(nome) ?? 0;
+            const valor = agrupado.valores.get(data).get(id) ?? 0;
             const x = area.x + passoX * indice;
             const y = area.y + area.height - ((maxValue > 0 ? valor / maxValue : 0) * area.height);
             return { x, y, valor, data };
@@ -427,9 +488,9 @@ function popularFiltroPeriodo(selectId, valores, formatador, valorPadrao) {
 }
 
 function obterItensHistoricos(mapaValores, campoValor) {
-    return [...mapaValores.entries()].map(([nome, valor]) => ({
-        id: nome,
-        nome,
+    return [...mapaValores.entries()].map(([id, valor]) => ({
+        id,
+        nome: graficosState.rotulosImpressoras.get(id) || id,
         [campoValor]: Number(valor || 0),
     }));
 }
@@ -574,7 +635,7 @@ function preencherTabelaHistorico(registros) {
         .map((registro) => `
             <tr>
                 <td>${escaparHtml(registro.data)}</td>
-                <td>${escaparHtml(registro.impressora)}</td>
+                <td>${escaparHtml(obterRotuloImpressora(registro) || registro.impressora)}</td>
                 <td>${formatarNumero(registro.impressoes_total_dia)}</td>
                 <td>${escaparHtml(registro.motivo)}</td>
                 <td>${escaparHtml(registro.timestamp_salvo)}</td>
@@ -596,15 +657,18 @@ async function carregarGraficos() {
             resHistorico.json(),
         ]);
         const historicoDiario = construirMapaHistoricoDiario(historico);
+        const rotulosImpressoras = construirMapaRotulosImpressoras(impressoras, historico);
+        const historicoDiarioCompleto = construirMapaHistoricoDiarioCompleto(
+            historicoDiario,
+            impressoras,
+        );
 
         graficosState.impressoras = impressoras;
         graficosState.historico = historico;
         graficosState.historicoDiario = historicoDiario;
-        graficosState.historicoDiarioCompleto = construirMapaHistoricoDiarioCompleto(
-            historicoDiario,
-            impressoras,
-        );
-        graficosState.historicoMensal = construirMapaHistoricoMensal(historicoDiario);
+        graficosState.rotulosImpressoras = rotulosImpressoras;
+        graficosState.historicoDiarioCompleto = historicoDiarioCompleto;
+        graficosState.historicoMensal = construirMapaHistoricoMensal(historicoDiarioCompleto);
 
         atualizarResumo(impressoras);
         inicializarAbasGraficos();

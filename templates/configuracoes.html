@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Configuracoes</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="dashboard">
+
+    <header>
+        <h1>Configuracoes</h1>
+        <nav class="top-nav" aria-label="Navegacao principal">
+            <a href="/" class="top-nav-link">Dashboard</a>
+            <a href="/graficos" class="top-nav-link">Graficos</a>
+            <a href="/switches" class="top-nav-link">Switches</a>
+            <a href="/impressoras" class="top-nav-link top-nav-link-settings active" aria-current="page">Configuracoes</a>
+        </nav>
+    </header>
+
+    <section class="card chart-view-card settings-tabs-card">
+        <div class="chart-tabs-header settings-tabs-header">
+            <div>
+                <h2>Cadastros de Monitoramento</h2>
+                <p class="chart-view-subtitle">
+                    Gerencie impressoras e switches no mesmo lugar. Cada aba possui formulario, resumo e lista de equipamentos cadastrados.
+                </p>
+            </div>
+            <div class="chart-tabs" role="tablist" aria-label="Tipos de configuracao">
+                <button
+                    type="button"
+                    class="chart-tab-button active"
+                    id="aba-config-impressoras"
+                    data-tab-target="painel-config-impressoras"
+                    role="tab"
+                    aria-selected="true"
+                    aria-controls="painel-config-impressoras"
+                >
+                    Impressoras
+                </button>
+                <button
+                    type="button"
+                    class="chart-tab-button"
+                    id="aba-config-switches"
+                    data-tab-target="painel-config-switches"
+                    role="tab"
+                    aria-selected="false"
+                    aria-controls="painel-config-switches"
+                >
+                    Switches
+                </button>
+            </div>
+        </div>
+
+        <div
+            id="painel-config-impressoras"
+            class="chart-tab-panel active"
+            role="tabpanel"
+            aria-labelledby="aba-config-impressoras"
+        >
+            <section class="resumo-status management-summary">
+                <div class="card resumo-card resumo-total">
+                    <span class="resumo-label">Total</span>
+                    <strong class="resumo-valor" id="total-impressoras">0</strong>
+                </div>
+                <div class="card resumo-card resumo-online">
+                    <span class="resumo-label">Online</span>
+                    <strong class="resumo-valor" id="total-impressoras-online">0</strong>
+                </div>
+                <div class="card resumo-card resumo-offline">
+                    <span class="resumo-label">Offline</span>
+                    <strong class="resumo-valor" id="total-impressoras-offline">0</strong>
+                </div>
+            </section>
+
+            <section class="printer-management-layout">
+                <article class="card management-card">
+                    <div class="chart-view-header">
+                        <div>
+                            <h2>Nova Impressora</h2>
+                            <p class="chart-view-subtitle">
+                                Cadastre uma nova impressora sem editar o codigo. O nome real sera obtido via SNMP quando houver resposta do equipamento.
+                            </p>
+                        </div>
+                    </div>
+
+                    <form id="form-impressora" class="printer-form">
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label for="printer-ip">IP</label>
+                                <input id="printer-ip" name="ip" type="text" placeholder="192.168.0.50" required>
+                            </div>
+
+                            <div class="form-field">
+                                <label for="printer-community">Community SNMP</label>
+                                <input id="printer-community" name="community" type="text" value="oabce" required>
+                            </div>
+
+                            <div class="form-field">
+                                <label for="printer-id">Identificador interno</label>
+                                <input id="printer-id" name="id" type="text" placeholder="Opcional. Ex.: impressora17">
+                                <p class="form-help">Se deixar em branco, o sistema gera automaticamente o proximo identificador.</p>
+                            </div>
+
+                            <div class="form-field">
+                                <label for="printer-token">Token por impressao</label>
+                                <select id="printer-token" name="token_valor_centavos" class="form-select" required>
+                                    <option value="4" selected>Preto e branco - R$ 0,04</option>
+                                    <option value="50">Colorida - R$ 0,50</option>
+                                </select>
+                                <p class="form-help">Defina o custo unitario que sera aplicado a esta impressora.</p>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="button-primary" id="submit-impressora">Adicionar impressora</button>
+                        </div>
+
+                        <p id="form-feedback" class="form-feedback" aria-live="polite"></p>
+                    </form>
+                </article>
+
+                <article class="card management-card">
+                    <div class="inventory-header">
+                        <div>
+                            <h2>Impressoras Cadastradas</h2>
+                            <p class="chart-view-subtitle">Lista atual usada pelo monitoramento.</p>
+                        </div>
+                    </div>
+
+                    <div id="lista-impressoras" class="inventory-grid">
+                        <p class="inventory-empty">Carregando configuracoes...</p>
+                    </div>
+                </article>
+            </section>
+        </div>
+
+        <div
+            id="painel-config-switches"
+            class="chart-tab-panel"
+            role="tabpanel"
+            aria-labelledby="aba-config-switches"
+            hidden
+        >
+            <section class="resumo-status management-summary">
+                <div class="card resumo-card resumo-total">
+                    <span class="resumo-label">Total</span>
+                    <strong class="resumo-valor" id="total-switches">0</strong>
+                </div>
+                <div class="card resumo-card resumo-online">
+                    <span class="resumo-label">Online</span>
+                    <strong class="resumo-valor" id="total-switches-online">0</strong>
+                </div>
+                <div class="card resumo-card resumo-offline">
+                    <span class="resumo-label">Offline</span>
+                    <strong class="resumo-valor" id="total-switches-offline">0</strong>
+                </div>
+            </section>
+
+            <section class="printer-management-layout">
+                <article class="card management-card">
+                    <div class="chart-view-header">
+                        <div>
+                            <h2>Novo Switch</h2>
+                            <p class="chart-view-subtitle">
+                                Cadastre switches para consultar nome, localizacao, uptime, MAC e quantidade total de interfaces via SNMP.
+                            </p>
+                        </div>
+                    </div>
+
+                    <form id="form-switch" class="printer-form">
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label for="switch-ip">IP</label>
+                                <input id="switch-ip" name="ip" type="text" placeholder="192.168.0.10" required>
+                            </div>
+
+                            <div class="form-field">
+                                <label for="switch-community">Community SNMP</label>
+                                <input id="switch-community" name="community" type="text" value="oabce" required>
+                            </div>
+
+                            <div class="form-field">
+                                <label for="switch-id">Identificador interno</label>
+                                <input id="switch-id" name="id" type="text" placeholder="Opcional. Ex.: switch-core">
+                                <p class="form-help">Se deixar em branco, o sistema gera automaticamente o proximo identificador.</p>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="button-primary" id="submit-switch">Adicionar switch</button>
+                        </div>
+
+                        <p id="form-feedback-switch" class="form-feedback" aria-live="polite"></p>
+                    </form>
+                </article>
+
+                <article class="card management-card">
+                    <div class="inventory-header">
+                        <div>
+                            <h2>Switches Cadastrados</h2>
+                            <p class="chart-view-subtitle">Lista atual usada pelo monitoramento SNMP de rede.</p>
+                        </div>
+                    </div>
+
+                    <div id="lista-switches" class="inventory-grid">
+                        <p class="inventory-empty">Carregando switches...</p>
+                    </div>
+                </article>
+            </section>
+        </div>
+    </section>
+
+</div>
+
+<script src="/static/js/configuracoes_impressoras.js"></script>
+<script src="/static/js/configuracoes_switches.js"></script>
+<script src="/static/js/configuracoes_abas.js"></script>
+
+</body>
+</html>

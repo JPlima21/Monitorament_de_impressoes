@@ -1,155 +1,155 @@
-# 🖨️ Como Adicionar Novas Impressoras
+# Como adicionar impressoras
 
-## Método Simples (Recomendado)
+O projeto nao depende mais de editar HTML ou listas fixas no codigo para crescer. Hoje uma nova impressora pode ser cadastrada pela interface, pela API ou, no primeiro bootstrap, pelo arquivo `.env`.
 
-O código agora é **totalmente escalável**. Para adicionar uma nova impressora:
+## Metodo recomendado: interface web
 
-### 1️⃣ Abra o arquivo `app.py`
+Use a tela de configuracoes:
 
-### 2️⃣ Localize a seção `IMPRESSORAS_CONFIG` (linhas 7-22)
+```text
+http://127.0.0.1:5000/impressoras
+```
 
-Você verá algo assim:
+Se estiver rodando com Docker:
 
-```python
-IMPRESSORAS_CONFIG = [
-    {
-        'id': 'impressora1',
-        'ip': '192.168.0.39',
-        'community': 'oabce'
-    },
-    {
-        'id': 'impressora2',
-        'ip': '192.168.0.32',
-        'community': 'oabce'
-    },
+```text
+http://127.0.0.1:8080/impressoras
+```
+
+Na aba `Impressoras`, preencha:
+
+- `IP`
+- `Community SNMP`
+- `Identificador interno`
+  Opcional. Se ficar em branco, o sistema cria automaticamente algo como `impressora17`.
+- `Token por impressao`
+  Valores permitidos hoje:
+  - `R$ 0,04`
+  - `R$ 0,50`
+
+Depois de salvar:
+
+- a configuracao e gravada no SQLite
+- o monitoramento da nova impressora comeca sem reiniciar a interface
+- uma nova thread e criada para o equipamento
+- a dashboard passa a exibir a impressora assim que houver dados
+
+## Metodo por API
+
+Tambem e possivel cadastrar via `POST /api/impressoras`.
+
+Exemplo:
+
+```http
+POST /api/impressoras
+Content-Type: application/json
+
+{
+  "ip": "192.168.0.50",
+  "community": "oabce",
+  "id": "impressora17",
+  "token_valor_centavos": 4
+}
+```
+
+Regras:
+
+- `ip` e obrigatorio
+- `community` e obrigatoria
+- `id` e opcional
+- `token_valor_centavos` aceita apenas `4` ou `50`
+- nao pode haver outro cadastro com o mesmo `id` ou o mesmo `ip`
+
+## Metodo por arquivo `.env`
+
+Esse caminho e util para bootstrap inicial ou provisionamento automatizado.
+
+Exemplo:
+
+```env
+IMPRESSORAS_CONFIG_JSON=[
+  {"id":"impressora1","ip":"192.168.0.31","community":"oabce","token_valor_centavos":4},
+  {"id":"impressora2","ip":"192.168.0.32","community":"oabce","token_valor_centavos":50}
 ]
 ```
 
-### 3️⃣ Adicione uma nova impressora
+Observacoes importantes:
 
-Simplesmente **copie e cole** um bloco e altere os valores:
+- o `.env` e lido durante a inicializacao da aplicacao
+- essas configuracoes servem como base inicial
+- depois disso, os cadastros ficam persistidos na tabela `printer_config`
+- se o banco ja tiver impressoras cadastradas com o mesmo `id` ou `ip`, o sistema nao duplica
 
-```python
-IMPRESSORAS_CONFIG = [
-    {
-        'id': 'impressora1',
-        'ip': '192.168.0.39',
-        'community': 'oabce'
-    },
-    {
-        'id': 'impressora2',
-        'ip': '192.168.0.32',
-        'community': 'oabce'
-    },
-    {
-        'id': 'impressora3',              # 👈 Novo ID
-        'ip': '192.168.0.50',            # 👈 Novo IP
-        'community': 'oabce'              # 👈 Community SNMP
-    },
-]
-```
+## Campos da impressora
 
-### 4️⃣ Salve e reinicie o servidor
+### `id`
 
-**Pronto!** ✅ A nova impressora será automaticamente monitorada!
+Identificador interno usado pela aplicacao.
 
----
+Exemplos:
 
-## Campos Explicados
+- `impressora1`
+- `impressora17`
+- `colorida-financeiro`
 
-| Campo | Exemplo | Descrição |
-|-------|---------|-----------|
-| `id` | `impressora3` | Identificador único (impressora1, impressora2, ...) |
-| `ip` | `192.168.0.50` | IP interno da impressora |
-| `community` | `oabce` | String SNMP (verifique na impressora) |
+### `ip`
 
-**Nota:** O nome da impressora é coletado automaticamente via SNMP (OID)
+Endereco IP acessivel pelo servidor onde a aplicacao esta rodando.
 
----
+### `community`
 
-## Exemplo Completo (4 Impressoras)
+Community SNMP configurada no equipamento.
 
-```python
-IMPRESSORAS_CONFIG = [
-    {
-        'id': 'impressora1',
-        'ip': '192.168.0.39',
-        'community': 'oabce'
-    },
-    {
-        'id': 'impressora2',
-        'ip': '192.168.0.32',
-        'community': 'oabce'
-    },
-    {
-        'id': 'impressora3',
-        'ip': '192.168.0.50',
-        'community': 'oabce'
-    },
-    {
-        'id': 'impressora4',
-        'ip': '192.168.0.51',
-        'community': 'oabce'
-    },
-]
-```
+Exemplos comuns:
 
----
+- `public`
+- `oabce`
 
-## ✅ O que acontece automaticamente
+### `token_valor_centavos`
 
-Quando você adiciona uma impressora:
+Valor unitario usado para estimar custo diario e mensal.
 
-1. ✅ Thread de monitoramento é criada
-2. ✅ Nome é coletado via SNMP
-3. ✅ Dados são coletados a cada 5 segundos
-4. ✅ API retorna informações da impressora
-5. ✅ Página HTML exibe automaticamente (se houver espaço)
-6. ✅ Terminal mostra status com o nome da impressora
+Valores aceitos hoje:
 
----
+- `4`
+- `50`
 
-## 📝 Notas Importantes
+## O que o sistema faz automaticamente
 
-- **ID deve ser único**: `impressora1`, `impressora2`, `impressora3`, etc.
-- **IPs devem ser válidos**: Verifique no painel de controle da impressora
-- **Community SNMP**: Geralmente é `public` ou `oabce` (configure na impressora)
-- **Máximo recomendado**: 5-10 impressoras (por questão de performance)
-- **Nome automático**: O nome é coletado via SNMP, não precisa configurar manualmente
+Ao adicionar uma impressora, o sistema:
 
----
+1. valida o cadastro
+2. persiste a configuracao no banco
+3. cria a estrutura interna de cache e rastreamento
+4. inicia a thread de monitoramento
+5. consulta os OIDs SNMP periodicamente
+6. atualiza dashboard, tela de configuracoes e endpoints da API
 
-## 🆙 Atualizar HTML para mais impressoras
+## Nao e mais necessario
 
-O HTML atualmente suporta **3 colunas**. Se você adicionar mais de 3 impressoras:
+Com a versao atual, voce nao precisa mais:
 
-1. Abra `templates/index.html`
-2. Copie e cole um bloco `<!-- COLUNA N -->` e altere os IDs
-3. Atualize o JavaScript para incluir os novos IDs
+- editar `main.py` para cadastrar impressoras
+- alterar HTML para criar mais colunas
+- mexer manualmente no JavaScript para exibir novos equipamentos
 
-**Exemplo** (para impressora4):
-```html
-<!-- COLUNA 4 - IMPRESSORA -->
-<div class="printer-column">
-    <!-- CARD IMAGEM -->
-    <div class="card printer">
-        <div class="printer-image">
-            <img src="/static/OKI_CALLCENTER.jpeg" alt="Impressora OKI">
-        </div>
-    </div>
+A interface monta os cards dinamicamente com base no que a API retorna.
 
-    <!-- CARD NOME -->
-    <div class="card">
-        <div class="card-header">
-            <h2 id="nome4">Carregando...</h2>
-            <div class="status offline" id="status4">OFFLINE</div>
-        </div>
-    </div>
-    ...
-</div>
-```
+## Quando a impressora aparece como offline
 
-E no JavaScript:
-```javascript
-{ impressora: 'impressora4', status: 'status4', nome: 'nome4', mac: 'mac4', serial: 'serial4', descricao: 'descricao4', uptime: 'uptime4', impressoes: 'impressoes4', toner: 'toner4', scanner: 'scanner4' }
-```
+Se o cadastro funcionar mas a impressora permanecer offline, revise:
+
+- conectividade de rede entre a aplicacao e o IP informado
+- community SNMP
+- SNMP habilitado no equipamento
+- compatibilidade dos OIDs usados com o modelo monitorado
+
+## Arquivos relacionados
+
+- `main.py`
+- `config.py`
+- `routes/api_routes.py`
+- `services/printer_config_service.py`
+- `services/printer_monitor_service.py`
+- `templates/configuracoes.html`
+- `static/js/configuracoes_impressoras.js`

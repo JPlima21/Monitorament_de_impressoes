@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard de Switches</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="dashboard">
+
+    <header>
+        <h1>Dashboard de Switches</h1>
+        <nav class="top-nav" aria-label="Navegacao principal">
+            <a href="/" class="top-nav-link">Dashboard</a>
+            <a href="/graficos" class="top-nav-link">Graficos</a>
+            <a href="/switches" class="top-nav-link active" aria-current="page">Switches</a>
+            <a href="/impressoras" class="top-nav-link top-nav-link-settings">Configuracoes</a>
+        </nav>
+    </header>
+
+    <section class="resumo-status">
+        <div class="card resumo-card resumo-total">
+            <span class="resumo-label">Total</span>
+            <strong class="resumo-valor" id="total-switches">0</strong>
+        </div>
+        <div class="card resumo-card resumo-online">
+            <span class="resumo-label">Online</span>
+            <strong class="resumo-valor" id="total-switches-online">0</strong>
+        </div>
+        <div class="card resumo-card resumo-offline">
+            <span class="resumo-label">Offline</span>
+            <strong class="resumo-valor" id="total-switches-offline">0</strong>
+        </div>
+        <div class="card resumo-card resumo-total">
+            <span class="resumo-label">Interfaces</span>
+            <strong class="resumo-valor" id="total-interfaces">0</strong>
+        </div>
+    </section>
+
+    <section class="card chart-view-card switch-dashboard-hero">
+        <div class="chart-view-header">
+            <div>
+                <h2>Visao operacional da rede</h2>
+                <p class="chart-view-subtitle">
+                    Acompanhe conectividade, localizacao, MAC, quantidade de interfaces e o estado da porta principal de cada switch.
+                </p>
+            </div>
+        </div>
+
+        <div id="switches-dashboard-grid" class="switch-dashboard-grid">
+            <p class="inventory-empty">Carregando switches...</p>
+        </div>
+    </section>
+
+</div>
+
+<script src="/static/js/switch_dashboard.js"></script>
+
+</body>
+</html>

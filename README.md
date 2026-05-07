@@ -1,315 +1,384 @@
 # Monitoramento de Impressoras
 
-Aplicacao Flask para monitorar impressoras via SNMP, exibir os dados em uma dashboard web e manter um historico local de impressoes em banco SQLite.
+Aplicacao Flask para monitorar impressoras e switches via SNMP, exibir os dados em uma interface web e persistir historico e configuracoes em SQLite.
 
-## Visao Geral
+## Visao geral
 
-O sistema faz consultas periodicas nas impressoras configuradas, coleta informacoes como:
+O sistema coleta periodicamente dados de equipamentos de rede e disponibiliza essas informacoes em tres camadas:
 
-- nome da impressora
-- IP
-- MAC address
-- numero de serie
-- modelo
-- asset number
-- contador total de impressoes
-- contador de impressoes do dia
-- nivel de toner
-- status
-- uptime
-- scanner
+- dashboard principal com status e metricas das impressoras
+- dashboard dedicado para switches
+- tela de graficos com leitura diaria, mensal e historico
+- tela de configuracoes para cadastrar impressoras e switches sem editar o codigo
 
-Esses dados ficam disponiveis de duas formas:
+Hoje o projeto monitora:
 
-- interface web em `/`
-- API JSON em `/api`
+- impressoras: nome, IP, MAC, serie, modelo, asset number, localizacao, uptime, total de impressoes, impressoes do dia, impressoes do mes, copias, scanner, toner e custo estimado
+- switches: nome, IP, descricao, localizacao, contato, uptime, MAC, total de interfaces e status da porta principal
 
-O historico de impressoes do dia e salvo no arquivo `historico_impressoes.db` e pode ser consultado pela rota `/api/historico`.
+## Principais recursos
 
-## Estrutura do Projeto
+- monitoramento concorrente com uma thread por equipamento
+- consulta SNMP com cache para campos estaveis
+- persistencia local em SQLite com WAL habilitado
+- historico diario consolidado de impressoes
+- rastreamento mensal de impressoes
+- cache de dados das impressoras e switches para manter contexto mesmo offline
+- cadastro dinamico de impressoras e switches via interface web ou API
+- estimativa de custo por impressora com token configuravel
+- endpoints JSON para consumo interno e integracao com Power BI
+
+## Arquitetura
+
+### Inicializacao
+
+O ponto de entrada da aplicacao e `main.py`.
+
+Na inicializacao o sistema:
+
+1. carrega configuracoes de ambiente em `config.py`
+2. cria e atualiza a estrutura do banco SQLite
+3. garante que as configuracoes padrao de impressoras e switches existam no banco
+4. instancia os servicos de monitoramento
+5. inicia as threads de coleta
+6. registra as rotas web e API no Flask
+
+### Servicos principais
+
+- `services/printer_monitor_service.py`
+  Responsavel pelo monitoramento das impressoras, calculo das metricas do dia e do mes, cache de dados SNMP e persistencia do historico.
+- `services/switch_monitor_service.py`
+  Responsavel pelo monitoramento dos switches e cache de dados de rede.
+- `services/historico_service.py`
+  Centraliza a criacao das tabelas, migracoes leves e operacoes SQLite.
+- `services/printer_config_service.py`
+  Valida, normaliza e persiste configuracoes de impressoras.
+- `services/switch_config_service.py`
+  Valida, normaliza e persiste configuracoes de switches.
+- `services/snmp_service.py`
+  Faz consultas SNMP e formata o MAC address.
+
+### Camada web
+
+- `routes/web_routes.py`
+  Rotas HTML.
+- `routes/api_routes.py`
+  Rotas JSON.
+- `templates/`
+  Paginas `index.html`, `graficos.html`, `switches.html` e `configuracoes.html`.
+- `static/js/`
+  Scripts responsaveis por consultar a API e renderizar dashboard, graficos e configuracoes.
+
+## Estrutura do projeto
 
 ```text
 Monitorament_de_impressoes/
-|- app.py
+|- main.py
 |- config.py
-|- historico_impressoes.db
+|- requirements.txt
+|- README.md
+|- COMO_ADICIONAR_IMPRESSORAS.md
+|- Dockerfile
+|- docker-compose.yml
 |- routes/
-|  |- api.py
-|  |- web.py
-|  \- __init__.py
+|  |- api_routes.py
+|  \- web_routes.py
 |- services/
 |  |- historico_service.py
-|  |- monitor_service.py
+|  |- printer_monitor_service.py
+|  |- printer_config_service.py
 |  |- snmp_service.py
-|  \- __init__.py
+|  |- switch_config_service.py
+|  \- switch_monitor_service.py
+|- templates/
+|  |- configuracoes.html
+|  |- index.html
+|  |- graficos.html
+|  \- switches.html
 |- static/
 |  |- style.css
+|  |- Epson.JPG
+|  |- OKI_CALLCENTER.jpeg
 |  \- js/
-|     \- dashboard.js
-|- templates/
-|  \- index.html
-|- requirements.txt
-\- README.md
+|     |- configuracoes_abas.js
+|     |- configuracoes_impressoras.js
+|     |- configuracoes_switches.js
+|     |- dashboard.js
+|     |- graficos.js
+|     \- switch_dashboard.js
+\- historico_impressoes.db
 ```
 
-## Papel de Cada Arquivo
+## Banco de dados
 
-### `app.py`
+O SQLite e usado para persistir tanto o historico quanto o estado operacional.
 
-Ponto de entrada da aplicacao.
+Tabelas principais:
 
-Responsabilidades:
+- `historico_impressoes`
+  Fechamentos diarios e registros de reset de contador.
+- `cache_rastreamento_diario`
+  Estado diario em andamento por impressora.
+- `rastreamento_mensal`
+  Estado mensal em andamento por impressora.
+- `cache_impressora`
+  Ultimos dados estaveis coletados de cada impressora.
+- `printer_config`
+  Cadastro persistente das impressoras monitoradas.
+- `switch_config`
+  Cadastro persistente dos switches monitorados.
+- `cache_switch`
+  Ultimos dados coletados dos switches.
 
-- cria a instancia do Flask
-- instancia o servico principal de monitoramento
-- inicia as threads de coleta
-- registra as rotas da API e da interface web
-- inicia o servidor em modo debug quando executado diretamente
+## Calculo de impressoes
 
-Em resumo, ele monta a aplicacao, mas nao concentra a regra de negocio.
+### Impressoes do dia
 
-### `config.py`
+O sistema calcula `impressoes_dia` com base no contador total da impressora.
 
-Arquivo central de configuracao.
+Regras:
 
-Contem:
+- na primeira leitura do dia, o contador atual vira a base inicial
+- durante o dia, o total e calculado pela diferenca entre o contador atual e a base inicial
+- ao cruzar o horario configurado em `HISTORICO_FECHAMENTO_DIARIO`, o dia operacional muda
+- quando isso acontece, o total consolidado do dia anterior e salvo em `historico_impressoes`
+- se o contador da impressora voltar para um valor menor, o sistema trata como reset, salva o acumulado parcial e continua a partir da nova base
 
-- caminho do banco de historico
-- intervalo entre coletas
-- lista de impressoras monitoradas
-- OIDs SNMP usados nas consultas
+### Impressoes do mes
 
-Esse arquivo existe para evitar valores fixos espalhados pelo codigo.
+O rastreamento mensal usa a mesma ideia:
 
-### `services/historico_service.py`
+- a base reinicia quando muda o mes
+- se houver reset do contador no meio do mes, o acumulado anterior e mantido
+- o total mensal e recalculado continuamente enquanto a impressora responde
 
-Responsavel pela persistencia do historico em SQLite.
+## Variaveis de ambiente
 
-Funcoes principais:
+O projeto tenta carregar automaticamente o arquivo `.env` na raiz.
 
-- `inicializar_banco(caminho_banco)`
-  - cria a tabela de historico se ela ainda nao existir
-- `carregar_historico(caminho_banco)`
-  - le o banco SQLite e devolve um dicionario Python
-- `salvar_registro_historico(caminho_banco, chave, registro)`
-  - grava ou atualiza um registro no banco SQLite
+Variaveis principais:
 
-Esse modulo isola a manipulacao de arquivo da logica de monitoramento.
+- `FLASK_DEBUG`
+- `FLASK_HOST`
+- `FLASK_PORT`
+- `HISTORICO_DB_FILE`
+- `HISTORICO_FECHAMENTO_DIARIO`
+- `MONITOR_INTERVAL_SECONDS`
+- `STATE_PERSIST_INTERVAL_SECONDS`
+- `PRINTER_CACHE_PERSIST_INTERVAL_SECONDS`
+- `SNMP_STABLE_REFRESH_INTERVAL_SECONDS`
+- `SNMP_DEFAULT_COMMUNITY`
+- `IMPRESSORAS_CONFIG_JSON`
+- `SWITCHES_CONFIG_JSON`
 
-### `services/snmp_service.py`
+Exemplo de `.env`:
 
-Responsavel pela comunicacao SNMP.
+```env
+FLASK_DEBUG=1
+FLASK_HOST=127.0.0.1
+FLASK_PORT=5000
+HISTORICO_DB_FILE=historico_impressoes.db
+HISTORICO_FECHAMENTO_DIARIO=08:00
+MONITOR_INTERVAL_SECONDS=5
+STATE_PERSIST_INTERVAL_SECONDS=60
+PRINTER_CACHE_PERSIST_INTERVAL_SECONDS=300
+SNMP_STABLE_REFRESH_INTERVAL_SECONDS=300
+SNMP_DEFAULT_COMMUNITY=oabce
+IMPRESSORAS_CONFIG_JSON=[{"id":"impressora1","ip":"192.168.0.31","community":"oabce","token_valor_centavos":4}]
+SWITCHES_CONFIG_JSON=[{"id":"switch1","ip":"192.168.0.10","community":"oabce"}]
+```
 
-Funcoes principais:
+### Observacoes sobre configuracao
 
-- `snmp_get(ip, community, oid, version=0, timeout=2)`
-  - faz uma consulta SNMP para um OID especifico
-  - retorna o valor encontrado ou `None` em caso de erro
-- `formatar_mac(mac_raw)`
-  - converte o MAC bruto para formato legivel
-  - exemplo: `00:25:36:E1:50:3B`
+- `IMPRESSORAS_CONFIG_JSON` e `SWITCHES_CONFIG_JSON` sao opcionais
+- se essas variaveis nao forem informadas, o sistema usa as configuracoes padrao definidas em `config.py`
+- apos o primeiro start, os cadastros ficam persistidos no banco SQLite
+- para impressoras, os tokens permitidos hoje sao `4` e `50` centavos
 
-Esse modulo evita que detalhes tecnicos do SNMP fiquem misturados com Flask ou regras do negocio.
+## Como executar localmente
 
-### `services/monitor_service.py`
+### Requisitos
 
-Modulo principal do sistema.
+- Python 3.11
+- acesso de rede aos equipamentos monitorados
+- SNMP habilitado nos equipamentos
 
-Contem a classe `PrinterMonitorService`, que coordena o monitoramento das impressoras.
+### Passos
 
-Responsabilidades da classe:
+1. Crie e ative um ambiente virtual.
+2. Instale as dependencias.
+3. Copie `.env.example` para `.env` e ajuste os valores necessarios.
+4. Execute a aplicacao.
 
-- inicializar o estado das impressoras
-- controlar o historico em memoria
-- calcular as impressoes do dia
-- detectar virada de dia
-- tratar reset do contador da impressora
-- criar uma thread por impressora
-- coletar dados via SNMP continuamente
-- disponibilizar os dados atualizados para a API
+Exemplo no PowerShell:
 
-Metodos principais:
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+Copy-Item .env.example .env
+python main.py
+```
 
-- `start()`
-  - inicia as threads de monitoramento
-- `get_resultado()`
-  - devolve o estado atual de todas as impressoras
-- `get_historico()`
-  - devolve o historico salvo em memoria
-- `_calcular_impressoes_dia(...)`
-  - calcula o total do dia com suporte a reset de contador
-- `_salvar_impressoes_dia(...)`
-- registra um fechamento ou reset no banco SQLite
-- `_monitorar_impressora(...)`
-  - consulta todos os OIDs e monta o dicionario final da impressora
-- `_monitor_loop(...)`
-  - executa a coleta continuamente com pausa definida em configuracao
+Interface padrao:
 
-### `routes/api.py`
+```text
+http://127.0.0.1:5000/
+```
 
-Define os endpoints JSON da aplicacao.
+## Como executar com Docker
 
-Rotas:
+Build e execucao:
 
-- `/api`
-  - retorna os dados atuais das impressoras
-- `/api/historico`
-  - retorna o historico salvo no banco SQLite
+```powershell
+docker compose up --build
+```
 
-Esse modulo so expõe dados. Ele nao conhece os detalhes de SNMP nem de persistencia.
+Configuracao atual do container:
 
-### `routes/web.py`
+- porta exposta: `8080`
+- banco persistido em `./data`
+- timezone: `America/Sao_Paulo`
 
-Define a rota da interface HTML.
+Interface no container:
 
-Rota:
+```text
+http://127.0.0.1:8080/
+```
 
-- `/`
-  - renderiza a pagina principal `index.html`
+## Rotas web
 
-### `templates/index.html`
+- `GET /`
+  Dashboard principal das impressoras.
+- `GET /graficos`
+  Graficos diarios, mensais e historico.
+- `GET /impressoras`
+  Tela de configuracoes de impressoras e switches.
+- `GET /switches`
+  Dashboard dedicado para switches.
 
-Estrutura base da dashboard.
+## Endpoints da API
 
-Responsabilidades:
+### Monitoramento geral
 
-- carregar o CSS
-- criar o container principal da pagina
-- importar o JavaScript da interface
+- `GET /api`
+  Retorna o estado atual das impressoras e, quando habilitado, dos switches.
 
-Ele foi mantido simples para nao misturar HTML com logica de atualizacao da tela.
-
-### `static/js/dashboard.js`
-
-Controla a interface no navegador.
-
-Funcoes principais:
-
-- `criarColunaImpressora(nomeImpressora)`
-  - monta dinamicamente o HTML de uma coluna/card
-- `atualizarStatus(statusEl, online)`
-  - atualiza o texto e a classe visual de status
-- `preencherCampos(nomeImpressora, dataImpressora)`
-  - preenche os campos da tela com os valores vindos da API
-- `inicializarContainer(container, impressoras)`
-  - cria os cards das impressoras na primeira carga
-- `atualizar()`
-  - faz `fetch('/api')`, le o JSON e atualiza a dashboard
-
-O arquivo tambem usa `setInterval(...)` para repetir a atualizacao automaticamente.
-
-## Fluxo de Funcionamento
-
-O fluxo geral da aplicacao e este:
-
-1. `app.py` cria a aplicacao Flask.
-2. `PrinterMonitorService` e instanciado.
-3. O servico carrega o historico existente de `historico_impressoes.db`.
-4. O servico cria o estado inicial das impressoras.
-5. O metodo `start()` inicia uma thread para cada impressora configurada.
-6. Cada thread executa `_monitor_loop(...)`.
-7. O loop consulta os dados SNMP da impressora.
-8. O resultado e armazenado em memoria em `resultado_global`.
-9. A interface web chama `/api` periodicamente.
-10. O JavaScript atualiza os cards na tela com os dados recebidos.
-
-## Calculo de Impressoes do Dia
-
-O calculo de `impressoes_dia` segue esta logica:
-
-- na primeira leitura do dia, o valor atual da impressora vira a base inicial
-- as impressoes do dia sao calculadas pela diferenca entre o contador atual e a base inicial
-- quando muda o dia, o total anterior e salvo no historico
-- se o contador da impressora reiniciar e voltar para um valor menor, o sistema entende isso como reset
-- nesse caso, ele acumula o total anterior, salva um registro no historico e continua a contagem a partir do novo valor
-- o estado diario em andamento tambem e salvo no banco, para que a aplicacao retome a contagem apos reinicios
-
-Isso evita perder a contagem diaria mesmo quando o equipamento reinicia o contador.
-
-## Endpoints
-
-### `GET /`
-
-Retorna a pagina principal da dashboard.
-
-### `GET /api`
-
-Retorna o estado atual das impressoras em JSON.
-
-Exemplo de estrutura:
+Exemplo resumido:
 
 ```json
 {
   "impressoras": {
     "impressora1": {
       "online": true,
-      "ip": "192.168.0.39",
-      "nome": "OKI",
-      "num_serie": "123456",
-      "modelo": "Modelo X",
-      "asset_number": "ABC123",
-      "impressoes": 15234,
+      "ip": "192.168.0.31",
+      "nome": "OKI XYZ",
+      "modelo": "ES4172",
+      "total_impressoes": 15234,
       "impressoes_dia": 87,
-      "toner": "65%",
-      "status": "ready",
-      "uptime": "2 Dias / 5 Horas / 12 Minutos",
-      "scanner": "ativo",
-      "mac": "00:11:22:33:44:55"
+      "impressoes_mes": 913,
+      "token_valor_centavos": 4,
+      "token_valor_formatado": "R$ 0,04"
+    }
+  },
+  "switches": {
+    "switch1": {
+      "online": true,
+      "ip": "192.168.0.10",
+      "nome": "Switch Core"
     }
   }
 }
 ```
 
-### `GET /api/historico`
+### Impressoras
 
-Retorna o historico de impressoes salvo no banco SQLite.
+- `GET /api/impressoras`
+  Lista as impressoras cadastradas com resumo de status e custo.
+- `POST /api/impressoras`
+  Cadastra uma nova impressora.
 
-## Como Executar
+Payload:
 
-1. Ative o ambiente virtual.
-2. Instale as dependencias de `requirements.txt`.
-3. Execute:
-
-```powershell
-venv\Scripts\python.exe app.py
-```
-
-4. Abra no navegador:
-
-```text
-http://127.0.0.1:5000/
-```
-
-## Como Adicionar uma Nova Impressora
-
-Edite a lista `IMPRESSORAS_CONFIG` em `config.py` e adicione um novo item com:
-
-- `id`
-- `ip`
-- `community`
-
-Exemplo:
-
-```python
+```json
 {
-    "id": "impressora6",
-    "ip": "192.168.0.36",
-    "community": "oabce",
+  "ip": "192.168.0.50",
+  "community": "oabce",
+  "id": "impressora17",
+  "token_valor_centavos": 4
 }
 ```
 
-## Observacoes Tecnicas
+Observacoes:
 
-- o sistema usa threads para monitorar varias impressoras em paralelo
-- o acesso ao estado compartilhado e protegido com `threading.Lock()`
-- o historico fica em arquivo local SQLite, sem necessidade de servidor externo
-- a interface nao consulta SNMP diretamente; ela apenas consome a API Flask
+- `id` pode ser omitido; nesse caso o sistema gera o proximo `impressoraN`
+- `token_valor_centavos` aceita `4` ou `50`
 
-## Melhorias Futuras
+### Switches
 
-- mover configuracoes para variaveis de ambiente ou arquivo externo
-- adicionar logs estruturados
-- criar testes automatizados
-- documentar os OIDs por fabricante/modelo
-- permitir cadastro de impressoras pela interface
-- adicionar filtros e paginacao no historico via consultas SQL
+- `GET /api/switches`
+  Lista os switches cadastrados.
+- `POST /api/switches`
+  Cadastra um novo switch.
+
+Payload:
+
+```json
+{
+  "ip": "192.168.0.10",
+  "community": "oabce",
+  "id": "switch-core"
+}
+```
+
+### Historico e integracao
+
+- `GET /api/historico`
+  Retorna o historico bruto persistido das impressoes.
+- `GET /api/powerbi/impressoras`
+  Retorna resumo consolidado das impressoras.
+- `GET /api/powerbi/historico`
+  Retorna historico em formato tabular, pronto para integracao.
+
+### Debug
+
+- `GET /api/debug/historico`
+  Exibe estado interno relevante do rastreamento.
+- `GET /api/debug/forcar-historico`
+  Forca o salvamento do historico atual das impressoras.
+
+## Fluxo de funcionamento
+
+1. `main.py` cria o app Flask.
+2. `config.py` carrega ambiente, OIDs e configuracoes base.
+3. `historico_service.py` garante a estrutura do banco.
+4. `printer_config_service.py` e `switch_config_service.py` carregam os cadastros ativos.
+5. `PrinterMonitorService` e `SwitchMonitorService` iniciam uma thread por equipamento.
+6. Cada thread consulta os OIDs SNMP periodicamente.
+7. O estado atualizado fica em memoria e parte dele e persistida no SQLite.
+8. A interface web consome a API para renderizar cards, tabelas e graficos.
+
+## Cadastro de equipamentos
+
+Voce pode cadastrar equipamentos de tres formas:
+
+- pela interface em `/impressoras`
+- pela API `POST /api/impressoras` e `POST /api/switches`
+- por variaveis de ambiente no primeiro bootstrap do sistema
+
+Para impressoras, consulte tambem [`COMO_ADICIONAR_IMPRESSORAS.md`](COMO_ADICIONAR_IMPRESSORAS.md).
+
+## Limitacoes atuais
+
+- nao ha autenticacao nas rotas web ou API
+- nao existem testes automatizados no repositorio
+- os OIDs usados hoje refletem o ambiente atual e podem exigir ajuste para outros fabricantes ou modelos
+- o monitoramento depende de conectividade SNMP e das communities corretas
+
+## Melhorias sugeridas
+
+- adicionar autenticacao para as rotas de configuracao
+- criar testes automatizados para os servicos
+- separar OIDs por fabricante ou perfil de equipamento
+- adicionar edicao e remocao de cadastros pela interface
+- incluir logs estruturados e healthchecks

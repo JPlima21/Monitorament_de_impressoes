@@ -22,6 +22,7 @@ function criarColunaImpressora(nomeImpressora) {
                                 <p><strong>MAC:</strong> <span id="mac_${nomeImpressora}"></span></p>
                                 <p><strong>N Serie:</strong> <span id="serial_${nomeImpressora}"></span></p>
                                 <p><strong>Modelo:</strong> <span id="modelo_${nomeImpressora}"></span></p>
+                                <p><strong>Token:</strong> <span id="token_${nomeImpressora}"></span></p>
                                 <p><strong>Asset Number:</strong> <span id="asset_number_${nomeImpressora}"></span></p>
                                 <p><strong>Localizacao:</strong> <span id="location_${nomeImpressora}"></span></p>
                                 <p><strong>Uptime:</strong> <span id="uptime_${nomeImpressora}"></span></p>
@@ -40,6 +41,8 @@ function criarColunaImpressora(nomeImpressora) {
                                     <p class="recurso-item"><strong>Copias</strong> <span id="copias_${nomeImpressora}"></span></p>
                                     <p class="recurso-item"><strong>Scanner</strong> <span id="scanner_${nomeImpressora}"></span></p>
                                     <p class="recurso-item"><strong>Total</strong> <span id="total_impressoes_${nomeImpressora}"></span></p>
+                                    <p class="recurso-item"><strong>Custo Dia</strong> <span id="custo_dia_${nomeImpressora}"></span></p>
+                                    <p class="recurso-item"><strong>Custo Mes</strong> <span id="custo_mes_${nomeImpressora}"></span></p>
                                 </div>
                                 <div class="recursos-coluna recursos-indices">
                                     <div class="indice-card indice-hoje">
@@ -62,6 +65,14 @@ function criarColunaImpressora(nomeImpressora) {
             </div>
         </div>
     `;
+}
+
+function formatarMoedaCentavos(valorCentavos) {
+    const valor = Number(valorCentavos || 0) / 100;
+    return new Intl.NumberFormat("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+    }).format(valor);
 }
 
 function obterImagemPorModelo(modelo) {
@@ -114,6 +125,83 @@ function formatarNumeroPainel(valor) {
     return valor;
 }
 
+function extrairPercentualToner(valor) {
+    const correspondencia = String(valor || "").match(/\d+/);
+    if (!correspondencia) {
+        return null;
+    }
+
+    const percentual = Number(correspondencia[0]);
+    if (Number.isNaN(percentual)) {
+        return null;
+    }
+
+    return Math.max(0, Math.min(100, percentual));
+}
+
+function calcularEstiloToner(percentual) {
+    if (percentual === null) {
+        return {
+            classe: "toner-indisponivel",
+            backgroundStart: "#64748b",
+            backgroundEnd: "#334155",
+            borderColor: "rgba(203, 213, 225, 0.32)",
+            shadowColor: "rgba(51, 65, 85, 0.28)",
+            textColor: "#f8fafc",
+        };
+    }
+
+    const hue = Math.round((percentual / 100) * 120);
+    const startLightness = 34 + Math.round((percentual / 100) * 20);
+    const endLightness = 20 + Math.round((percentual / 100) * 14);
+    const backgroundStart = `hsl(${hue} 92% ${startLightness}%)`;
+    const backgroundEnd = `hsl(${Math.max(0, hue - 8)} 96% ${endLightness}%)`;
+    const borderOpacity = 0.4 + (percentual / 100) * 0.24;
+    const shadowOpacity = 0.32 + (percentual / 100) * 0.12;
+
+    return {
+        classe: percentual >= 40 && percentual <= 72 ? "toner-texto-escuro" : "",
+        backgroundStart,
+        backgroundEnd,
+        borderColor: `hsl(${hue} 98% 82% / ${borderOpacity.toFixed(2)})`,
+        shadowColor: `hsl(${Math.max(0, hue - 4)} 98% 18% / ${shadowOpacity.toFixed(2)})`,
+        textColor: percentual >= 40 && percentual <= 72 ? "#1f2937" : "#f8fafc",
+    };
+}
+
+function atualizarIndicadorToner(nomeImpressora, valorToner) {
+    const tonerEl = document.getElementById(`toner_${nomeImpressora}`);
+    if (!tonerEl) {
+        return;
+    }
+
+    const cardToner = tonerEl.closest(".indice-toner");
+    if (!cardToner) {
+        return;
+    }
+
+    const percentual = extrairPercentualToner(valorToner);
+    const estiloToner = calcularEstiloToner(percentual);
+
+    cardToner.classList.remove("toner-indisponivel", "toner-texto-escuro");
+    if (estiloToner.classe) {
+        cardToner.classList.add(estiloToner.classe);
+    }
+    if (percentual === null) {
+        cardToner.classList.add("toner-indisponivel");
+    }
+
+    cardToner.style.setProperty("--toner-bg-start", estiloToner.backgroundStart);
+    cardToner.style.setProperty("--toner-bg-end", estiloToner.backgroundEnd);
+    cardToner.style.setProperty("--toner-border-color", estiloToner.borderColor);
+    cardToner.style.setProperty("--toner-shadow-color", estiloToner.shadowColor);
+    cardToner.style.setProperty("--toner-text-color", estiloToner.textColor);
+    cardToner.setAttribute(
+        "aria-label",
+        percentual === null ? "Nivel de toner indisponivel" : `Nivel de toner em ${percentual}%`
+    );
+}
+
 // Preenche os campos de uma impressora especifica, usando "N/A" como fallback para dados ausentes
 function preencherCampos(nomeImpressora, dataImpressora) {
     const elements = {
@@ -123,6 +211,7 @@ function preencherCampos(nomeImpressora, dataImpressora) {
         mac: document.getElementById(`mac_${nomeImpressora}`),
         serial: document.getElementById(`serial_${nomeImpressora}`),
         modelo: document.getElementById(`modelo_${nomeImpressora}`),
+        token: document.getElementById(`token_${nomeImpressora}`),
         asset_number: document.getElementById(`asset_number_${nomeImpressora}`),
         location: document.getElementById(`location_${nomeImpressora}`),
         uptime: document.getElementById(`uptime_${nomeImpressora}`),
@@ -131,6 +220,8 @@ function preencherCampos(nomeImpressora, dataImpressora) {
         copias: document.getElementById(`copias_${nomeImpressora}`),
         impressoes_dia: document.getElementById(`impressoes_dia_${nomeImpressora}`),
         impressoes_mes: document.getElementById(`impressoes_mes_${nomeImpressora}`),
+        custo_dia: document.getElementById(`custo_dia_${nomeImpressora}`),
+        custo_mes: document.getElementById(`custo_mes_${nomeImpressora}`),
         toner: document.getElementById(`toner_${nomeImpressora}`),
         scanner: document.getElementById(`scanner_${nomeImpressora}`),
     };
@@ -145,6 +236,7 @@ function preencherCampos(nomeImpressora, dataImpressora) {
     if (elements.mac) elements.mac.innerText = dataImpressora.mac || "N/A";
     if (elements.serial) elements.serial.innerText = dataImpressora.num_serie || "N/A";
     if (elements.modelo) elements.modelo.innerText = dataImpressora.modelo || "N/A";
+    if (elements.token) elements.token.innerText = dataImpressora.token_valor_formatado || "N/A";
     if (elements.asset_number) elements.asset_number.innerText = dataImpressora.asset_number || "N/A";
     if (elements.location) elements.location.innerText = dataImpressora.location || "N/A";
     if (elements.uptime) elements.uptime.innerText = dataImpressora.uptime || "N/A";
@@ -153,7 +245,10 @@ function preencherCampos(nomeImpressora, dataImpressora) {
     if (elements.copias) elements.copias.innerText = formatarNumeroPainel(dataImpressora.copias);
     if (elements.impressoes_dia) elements.impressoes_dia.innerText = formatarNumeroPainel(dataImpressora.impressoes_dia);
     if (elements.impressoes_mes) elements.impressoes_mes.innerText = formatarNumeroPainel(dataImpressora.impressoes_mes);
+    if (elements.custo_dia) elements.custo_dia.innerText = formatarMoedaCentavos(dataImpressora.custo_estimado_dia_centavos);
+    if (elements.custo_mes) elements.custo_mes.innerText = formatarMoedaCentavos(dataImpressora.custo_estimado_mes_centavos);
     if (elements.toner) elements.toner.innerText = dataImpressora.toner || "N/A";
+    atualizarIndicadorToner(nomeImpressora, dataImpressora.toner);
     if (elements.scanner) elements.scanner.innerText = dataImpressora.scanner || "N/A";
 }
 
